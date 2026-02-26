@@ -17,8 +17,9 @@ import {
   FiUser, FiBarChart2, FiTarget, FiTrendingUp, FiAward, FiBookOpen,
   FiRefreshCw, FiActivity, FiAlertTriangle, FiCheckCircle,
   FiClock, FiMapPin, FiBriefcase, FiZap, FiLayers, FiGrid,
-  FiDollarSign, FiUsers, FiPercent, FiStar, FiPlay,
-  FiChevronRight, FiChevronDown, FiCompass, FiPieChart, FiArrowRight
+  FiUsers, FiPercent, FiStar, FiPlay,
+  FiChevronRight, FiChevronDown, FiCompass, FiArrowRight,
+  FiUploadCloud, FiFile, FiVideo, FiLink, FiTrash2, FiPlus, FiTag, FiFolder, FiX, FiGlobe
 } from 'react-icons/fi'
 import {
   RadarChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar,
@@ -75,8 +76,8 @@ const PROFICIENCY_LABELS: Record<number, string> = {
 }
 
 // ─── SECTION DEFINITIONS ───
-type EmployeeSection = 'assessment' | 'radar' | 'gaps' | 'learning-path' | 'mobility' | 'roi'
-type ManagerSection = 'wf-overview' | 'wf-heatmap' | 'wf-shortage' | 'wf-funnel' | 'wf-effectiveness' | 'wf-roi' | 'wf-underperforming' | 'pred-forecast'
+type EmployeeSection = 'assessment' | 'radar' | 'gaps' | 'learning-path' | 'mobility'
+type ManagerSection = 'wf-overview' | 'wf-heatmap' | 'wf-shortage' | 'wf-funnel' | 'wf-effectiveness' | 'wf-underperforming' | 'pred-forecast' | 'content-library'
 
 const EMPLOYEE_SECTIONS: { id: EmployeeSection; label: string; icon: React.ComponentType<any> }[] = [
   { id: 'assessment', label: 'Skill Assessment', icon: FiPlay },
@@ -84,7 +85,6 @@ const EMPLOYEE_SECTIONS: { id: EmployeeSection; label: string; icon: React.Compo
   { id: 'gaps', label: 'Gap Analysis', icon: FiGrid },
   { id: 'learning-path', label: 'Learning Path', icon: FiBookOpen },
   { id: 'mobility', label: 'Career Mobility', icon: FiMapPin },
-  { id: 'roi', label: 'ROI Metrics', icon: FiDollarSign },
 ]
 
 const MANAGER_SECTIONS: { id: ManagerSection; label: string; icon: React.ComponentType<any>; group: string }[] = [
@@ -93,9 +93,9 @@ const MANAGER_SECTIONS: { id: ManagerSection; label: string; icon: React.Compone
   { id: 'wf-shortage', label: 'Shortage Index', icon: FiAlertTriangle, group: 'Workforce Intelligence' },
   { id: 'wf-funnel', label: 'Readiness Funnel', icon: FiBarChart2, group: 'Workforce Intelligence' },
   { id: 'wf-effectiveness', label: 'Effectiveness Analytics', icon: FiActivity, group: 'Workforce Intelligence' },
-  { id: 'wf-roi', label: 'ROI by Department', icon: FiDollarSign, group: 'Workforce Intelligence' },
   { id: 'wf-underperforming', label: 'Underperforming Programs', icon: FiAlertTriangle, group: 'Workforce Intelligence' },
   { id: 'pred-forecast', label: 'Predictive Forecast', icon: FiTrendingUp, group: 'Predictive Analytics' },
+  { id: 'content-library', label: 'Content Library', icon: FiFolder, group: 'Content Management' },
 ]
 
 // ─── TYPESCRIPT INTERFACES ───
@@ -199,6 +199,29 @@ interface PredictiveResponse {
     timeline: string
   }>
 }
+
+// ─── CONTENT LIBRARY TYPES ───
+type ContentType = 'video_url' | 'document' | 'pdf' | 'website_url'
+
+interface ContentItem {
+  id: string
+  title: string
+  description: string
+  type: ContentType
+  url: string
+  departments: string[]
+  roles: string[]
+  addedAt: string
+}
+
+const CONTENT_TYPE_OPTIONS: { value: ContentType; label: string; icon: React.ComponentType<any>; description: string }[] = [
+  { value: 'video_url', label: 'Video URL', icon: FiVideo, description: 'YouTube, Vimeo, or other video links' },
+  { value: 'document', label: 'Document', icon: FiFile, description: 'Word docs, spreadsheets, presentations' },
+  { value: 'pdf', label: 'PDF', icon: FiFile, description: 'PDF documents and guides' },
+  { value: 'website_url', label: 'Website URL', icon: FiGlobe, description: 'Web pages, articles, or online courses' },
+]
+
+const DEPARTMENT_OPTIONS = ['Engineering', 'Product', 'Data Science', 'DevOps', 'Design', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations']
 
 // ─── SAMPLE DATA ───
 const SAMPLE_ORCHESTRATOR: OrchestratorResponse = {
@@ -472,6 +495,18 @@ export default function Page() {
   const [strengthsNote, setStrengthsNote] = useState('')
   const [growthNote, setGrowthNote] = useState('')
 
+  // Content Library state
+  const [contentItems, setContentItems] = useState<ContentItem[]>([])
+  const [showAddContent, setShowAddContent] = useState(false)
+  const [newContentTitle, setNewContentTitle] = useState('')
+  const [newContentDescription, setNewContentDescription] = useState('')
+  const [newContentType, setNewContentType] = useState<ContentType>('video_url')
+  const [newContentUrl, setNewContentUrl] = useState('')
+  const [newContentDepartments, setNewContentDepartments] = useState<string[]>([])
+  const [newContentRoles, setNewContentRoles] = useState<string[]>([])
+  const [contentFilterDept, setContentFilterDept] = useState<string>('all')
+  const [contentFilterType, setContentFilterType] = useState<string>('all')
+
   const mainRef = useRef<HTMLDivElement>(null)
 
   // Scroll to top on section change
@@ -585,6 +620,52 @@ Based on this self-evaluation, generate accurate skill radar data (current_score
       setActiveAgentId(null)
     }
   }, [scenario])
+
+  // ─── CONTENT LIBRARY HANDLERS ───
+  const handleAddContent = useCallback(() => {
+    if (!newContentTitle.trim() || !newContentUrl.trim()) return
+    const item: ContentItem = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      title: newContentTitle.trim(),
+      description: newContentDescription.trim(),
+      type: newContentType,
+      url: newContentUrl.trim(),
+      departments: newContentDepartments,
+      roles: newContentRoles,
+      addedAt: new Date().toISOString(),
+    }
+    setContentItems(prev => [item, ...prev])
+    setNewContentTitle('')
+    setNewContentDescription('')
+    setNewContentType('video_url')
+    setNewContentUrl('')
+    setNewContentDepartments([])
+    setNewContentRoles([])
+    setShowAddContent(false)
+  }, [newContentTitle, newContentDescription, newContentType, newContentUrl, newContentDepartments, newContentRoles])
+
+  const handleRemoveContent = useCallback((id: string) => {
+    setContentItems(prev => prev.filter(c => c.id !== id))
+  }, [])
+
+  const toggleDepartment = useCallback((dept: string) => {
+    setNewContentDepartments(prev => prev.includes(dept) ? prev.filter(d => d !== dept) : [...prev, dept])
+  }, [])
+
+  const toggleRole = useCallback((role: string) => {
+    setNewContentRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role])
+  }, [])
+
+  const filteredContent = contentItems.filter(item => {
+    if (contentFilterDept !== 'all' && !item.departments.includes(contentFilterDept)) return false
+    if (contentFilterType !== 'all' && item.type !== contentFilterType) return false
+    return true
+  })
+
+  const contentTypeIcon = (type: ContentType) => {
+    const opt = CONTENT_TYPE_OPTIONS.find(o => o.value === type)
+    return opt ? opt.icon : FiFile
+  }
 
   const displayOrchestrator = showSample ? SAMPLE_ORCHESTRATOR : orchestratorData
   const displayWorkforce = showSample ? SAMPLE_WORKFORCE : workforceData
@@ -1334,297 +1415,6 @@ Based on this self-evaluation, generate accurate skill radar data (current_score
                   </div>
                 )}
 
-                {/* SECTION: ROI Metrics */}
-                {activeEmployeeSection === 'roi' && hasEmployeeData && displayOrchestrator && (() => {
-                  const roi = displayOrchestrator.roi_metrics
-                  const effectivenessScore = roi?.effectiveness_score ?? 0
-                  const acquisitionVelocity = roi?.acquisition_velocity ?? 0
-                  const programRoi = roi?.program_roi ?? 0
-                  const retentionLift = roi?.retention_lift ?? 0
-                  const readinessScore = displayOrchestrator.overall_readiness_score ?? 0
-                  const gaps = Array.isArray(displayOrchestrator.gap_heatmap) ? displayOrchestrator.gap_heatmap : []
-                  const criticalGaps = gaps.filter(g => (g?.classification ?? '').toLowerCase() === 'critical').length
-                  const totalGaps = gaps.length
-                  const learningActivities = Array.isArray(displayOrchestrator.learning_path?.activities) ? displayOrchestrator.learning_path.activities : []
-                  const totalHours = learningActivities.reduce((sum, a) => sum + (a?.hours ?? 0), 0)
-                  const totalWeeks = displayOrchestrator.learning_path?.total_weeks ?? 0
-                  const mobilityMatches = Array.isArray(displayOrchestrator.mobility_matches) ? displayOrchestrator.mobility_matches : []
-                  const topMobility = mobilityMatches.length > 0 ? mobilityMatches.reduce((best, m) => (m?.readiness ?? 0) > (best?.readiness ?? 0) ? m : best, mobilityMatches[0]) : null
-
-                  // Derived insights
-                  const costPerHour = 75 // estimated avg training cost per hour
-                  const estimatedInvestment = totalHours * costPerHour
-                  const projectedReturn = Math.round(estimatedInvestment * (programRoi / 100))
-                  const netBenefit = projectedReturn - estimatedInvestment
-                  const readinessAfter = Math.min(100, readinessScore + Math.round((100 - readinessScore) * (effectivenessScore / 100)))
-
-                  // Gauge SVG helper
-                  const MiniGauge = ({ value, size = 80, color }: { value: number; size?: number; color: string }) => {
-                    const r = (size - 12) / 2
-                    const c = 2 * Math.PI * r
-                    const p = (value / 100) * c
-                    return (
-                      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-                        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="hsl(35, 15%, 85%)" strokeWidth="8" />
-                        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="8" strokeDasharray={c} strokeDashoffset={c - p} strokeLinecap="round" transform={`rotate(-90 ${size/2} ${size/2})`} />
-                        <text x={size/2} y={size/2 + 1} textAnchor="middle" dominantBaseline="middle" className="fill-foreground font-mono text-sm font-bold">{value}%</text>
-                      </svg>
-                    )
-                  }
-
-                  return (
-                    <div className="space-y-6">
-                      {/* Hero KPI Cards */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <Card className="shadow-md hover:shadow-lg transition-shadow border-l-4 border-l-green-600">
-                          <CardContent className="p-5">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <p className="text-xs text-muted-foreground font-sans uppercase tracking-wide">Effectiveness</p>
-                                <p className="font-mono text-3xl font-bold mt-1">{effectivenessScore}%</p>
-                                <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed font-sans">How well the recommended learning path converts to actual skill improvement</p>
-                              </div>
-                              <MiniGauge value={effectivenessScore} size={56} color="hsl(140, 50%, 35%)" />
-                            </div>
-                          </CardContent>
-                        </Card>
-                        <Card className="shadow-md hover:shadow-lg transition-shadow border-l-4 border-l-primary">
-                          <CardContent className="p-5">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <p className="text-xs text-muted-foreground font-sans uppercase tracking-wide">Skill Velocity</p>
-                                <p className="font-mono text-3xl font-bold mt-1">{acquisitionVelocity}x</p>
-                                <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed font-sans">Rate of skill acquisition compared to industry average (1x baseline)</p>
-                              </div>
-                              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                <FiZap className="text-primary text-xl" />
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                        <Card className="shadow-md hover:shadow-lg transition-shadow border-l-4 border-l-accent">
-                          <CardContent className="p-5">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <p className="text-xs text-muted-foreground font-sans uppercase tracking-wide">Program ROI</p>
-                                <p className="font-mono text-3xl font-bold mt-1">{programRoi}%</p>
-                                <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed font-sans">Expected return on learning investment based on historical program data</p>
-                              </div>
-                              <div className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
-                                <FiDollarSign className="text-accent text-xl" />
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                        <Card className="shadow-md hover:shadow-lg transition-shadow border-l-4 border-l-blue-600">
-                          <CardContent className="p-5">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <p className="text-xs text-muted-foreground font-sans uppercase tracking-wide">Retention Lift</p>
-                                <p className="font-mono text-3xl font-bold mt-1">+{retentionLift}%</p>
-                                <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed font-sans">Increased likelihood of retention when employees are actively upskilled</p>
-                              </div>
-                              <div className="w-14 h-14 rounded-full bg-blue-600/10 flex items-center justify-center flex-shrink-0">
-                                <FiTrendingUp className="text-blue-600 text-xl" />
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      {/* Investment Impact Analysis */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card className="shadow-md hover:shadow-lg transition-shadow">
-                          <CardHeader className="pb-3">
-                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiDollarSign className="text-primary" /> Investment Impact</CardTitle>
-                            <CardDescription className="font-sans">Projected financial impact of completing the learning path</CardDescription>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="p-4 rounded-lg bg-secondary/30 border border-secondary">
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="text-sm font-sans">Estimated Training Investment</span>
-                                <span className="font-mono text-lg font-bold">{formatCurrency(estimatedInvestment)}</span>
-                              </div>
-                              <div className="text-[11px] text-muted-foreground font-sans">
-                                {totalHours} hours of training across {learningActivities.length} activities over {totalWeeks} weeks
-                              </div>
-                            </div>
-                            <div className="p-4 rounded-lg bg-green-600/5 border border-green-600/15">
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="text-sm font-sans">Projected Return</span>
-                                <span className="font-mono text-lg font-bold text-green-700">{formatCurrency(projectedReturn)}</span>
-                              </div>
-                              <div className="text-[11px] text-muted-foreground font-sans">
-                                Based on {programRoi}% historical program ROI
-                              </div>
-                            </div>
-                            <Separator />
-                            <div className="flex items-center justify-between px-1">
-                              <span className="text-sm font-medium font-sans">Net Benefit</span>
-                              <span className={`font-mono text-xl font-bold ${netBenefit >= 0 ? 'text-green-700' : 'text-destructive'}`}>
-                                {netBenefit >= 0 ? '+' : ''}{formatCurrency(netBenefit)}
-                              </span>
-                            </div>
-
-                            {/* ROI visual bar */}
-                            <div className="mt-2">
-                              <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
-                                <span>Investment</span>
-                                <span>Return</span>
-                              </div>
-                              <div className="relative h-6 bg-secondary/50 rounded-md overflow-hidden">
-                                <div
-                                  className="absolute inset-y-0 left-0 rounded-md"
-                                  style={{ width: `${Math.min(100, (estimatedInvestment / Math.max(projectedReturn, estimatedInvestment)) * 100)}%`, backgroundColor: CHART_COLORS.c4 }}
-                                />
-                                <div
-                                  className="absolute inset-y-0 left-0 rounded-md opacity-40"
-                                  style={{ width: '100%', backgroundColor: 'hsl(140, 50%, 35%)' }}
-                                />
-                                <div
-                                  className="absolute inset-y-0 left-0 rounded-md"
-                                  style={{ width: `${Math.min(100, (estimatedInvestment / Math.max(projectedReturn, estimatedInvestment)) * 100)}%`, backgroundColor: CHART_COLORS.c4 }}
-                                />
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        {/* Readiness Projection */}
-                        <Card className="shadow-md hover:shadow-lg transition-shadow">
-                          <CardHeader className="pb-3">
-                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiTarget className="text-primary" /> Readiness Projection</CardTitle>
-                            <CardDescription className="font-sans">Estimated readiness before and after completing the learning path</CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="flex items-center justify-around py-4">
-                              <div className="text-center">
-                                <p className="text-xs text-muted-foreground font-sans mb-2">Current</p>
-                                <ReadinessGauge score={readinessScore} />
-                              </div>
-                              <div className="flex flex-col items-center gap-1">
-                                <FiArrowRight className="text-primary text-xl" />
-                                <span className="text-[10px] text-muted-foreground font-sans">{totalWeeks} weeks</span>
-                              </div>
-                              <div className="text-center">
-                                <p className="text-xs text-muted-foreground font-sans mb-2">Projected</p>
-                                <ReadinessGauge score={readinessAfter} />
-                              </div>
-                            </div>
-                            <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/15">
-                              <p className="text-xs text-muted-foreground font-sans leading-relaxed">
-                                With a <span className="font-mono font-medium text-foreground">{effectivenessScore}%</span> effectiveness rate and <span className="font-mono font-medium text-foreground">{acquisitionVelocity}x</span> skill velocity, completing the learning path is projected to increase readiness by <span className="font-mono font-bold text-primary">+{readinessAfter - readinessScore} points</span>.
-                              </p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      {/* Detailed Insights */}
-                      <Card className="shadow-md hover:shadow-lg transition-shadow">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiActivity className="text-primary" /> Assessment Insights</CardTitle>
-                          <CardDescription className="font-sans">Key findings from your skill gap analysis</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {/* Gaps Insight */}
-                            <div className="p-4 rounded-lg border border-border bg-card">
-                              <div className="flex items-center gap-2 mb-3">
-                                <FiGrid className="text-primary" />
-                                <p className="text-sm font-medium">Skill Gaps</p>
-                              </div>
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-muted-foreground">Total gaps identified</span>
-                                  <span className="font-mono text-sm font-bold">{totalGaps}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-destructive">Critical gaps</span>
-                                  <span className="font-mono text-sm font-bold text-destructive">{criticalGaps}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-muted-foreground">Avg gap size</span>
-                                  <span className="font-mono text-sm font-bold">{totalGaps > 0 ? Math.round(gaps.reduce((sum, g) => sum + (g?.delta ?? 0), 0) / totalGaps) : 0} pts</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Learning Insight */}
-                            <div className="p-4 rounded-lg border border-border bg-card">
-                              <div className="flex items-center gap-2 mb-3">
-                                <FiBookOpen className="text-primary" />
-                                <p className="text-sm font-medium">Learning Path</p>
-                              </div>
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-muted-foreground">Activities planned</span>
-                                  <span className="font-mono text-sm font-bold">{learningActivities.length}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-muted-foreground">Total training hours</span>
-                                  <span className="font-mono text-sm font-bold">{totalHours}h</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-muted-foreground">Duration</span>
-                                  <span className="font-mono text-sm font-bold">{totalWeeks} weeks</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Mobility Insight */}
-                            <div className="p-4 rounded-lg border border-border bg-card">
-                              <div className="flex items-center gap-2 mb-3">
-                                <FiMapPin className="text-primary" />
-                                <p className="text-sm font-medium">Career Mobility</p>
-                              </div>
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs text-muted-foreground">Matching roles</span>
-                                  <span className="font-mono text-sm font-bold">{mobilityMatches.length}</span>
-                                </div>
-                                {topMobility && (
-                                  <>
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-xs text-muted-foreground">Best match</span>
-                                      <span className="text-xs font-medium truncate max-w-[120px]">{topMobility.role_title}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-xs text-muted-foreground">Top readiness</span>
-                                      <span className="font-mono text-sm font-bold text-primary">{topMobility.readiness}%</span>
-                                    </div>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Bottom recommendation */}
-                      <Card className="shadow-md bg-primary/5 border-primary/15">
-                        <CardContent className="p-5">
-                          <div className="flex items-start gap-4">
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <FiCompass className="text-primary text-lg" />
-                            </div>
-                            <div>
-                              <p className="font-serif font-semibold text-sm mb-1">Recommendation</p>
-                              <p className="text-sm text-muted-foreground leading-relaxed font-sans">
-                                {readinessScore >= 75
-                                  ? `With a readiness score of ${readinessScore}%, you are well-positioned for the transition. Focus on the ${criticalGaps} critical gap${criticalGaps !== 1 ? 's' : ''} to maximize your readiness. The projected ROI of ${programRoi}% makes this a strong investment.`
-                                  : readinessScore >= 50
-                                    ? `Your readiness score of ${readinessScore}% shows solid foundations with room for growth. Prioritize the ${criticalGaps} critical skill gap${criticalGaps !== 1 ? 's' : ''} and the ${totalHours}-hour learning path to close the gap. With ${acquisitionVelocity}x skill velocity, you can reach your target efficiently.`
-                                    : `At ${readinessScore}% readiness, you have significant gaps to address. The ${totalHours}-hour learning path across ${totalWeeks} weeks targets all ${totalGaps} identified gaps. Start with critical skills first. The ${retentionLift}% retention lift shows the organization values this investment in your growth.`
-                                }
-                              </p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )
-                })()}
               </>
             )}
 
@@ -1834,57 +1624,6 @@ Based on this self-evaluation, generate accurate skill radar data (current_score
                                 <p className="text-xs text-muted-foreground mt-0.5">{m.label}</p>
                               </div>
                             ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <Card className="shadow-md"><CardContent className="p-12 text-center"><p className="text-muted-foreground text-sm font-sans">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
-                    )}
-                  </div>
-                )}
-
-                {/* SECTION: ROI by Department */}
-                {activeManagerSection === 'wf-roi' && (
-                  <div className="space-y-6">
-                    {displayWorkforce ? (
-                      <Card className="shadow-md hover:shadow-lg transition-shadow">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiDollarSign className="text-primary" /> ROI by Department</CardTitle>
-                          <CardDescription className="font-sans">Investment vs. returns across departments</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={Array.isArray(displayWorkforce.roi_by_department) ? displayWorkforce.roi_by_department : []} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 15%, 80%)" />
-                              <XAxis dataKey="department" tick={{ fontSize: 11 }} />
-                              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatCurrency(v)} />
-                              <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                              <Legend />
-                              <Bar dataKey="investment" fill={CHART_COLORS.c4} name="Investment" />
-                              <Bar dataKey="returns" fill={CHART_COLORS.c2} name="Returns" />
-                            </BarChart>
-                          </ResponsiveContainer>
-                          <div className="mt-4 overflow-x-auto">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead className="text-xs">Department</TableHead>
-                                  <TableHead className="text-xs text-right">Investment</TableHead>
-                                  <TableHead className="text-xs text-right">Returns</TableHead>
-                                  <TableHead className="text-xs text-right">ROI %</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {(Array.isArray(displayWorkforce.roi_by_department) ? displayWorkforce.roi_by_department : []).map((r, i) => (
-                                  <TableRow key={i}>
-                                    <TableCell className="text-sm font-medium">{r?.department ?? ''}</TableCell>
-                                    <TableCell className="text-sm text-right font-mono">{formatCurrency(r?.investment ?? 0)}</TableCell>
-                                    <TableCell className="text-sm text-right font-mono">{formatCurrency(r?.returns ?? 0)}</TableCell>
-                                    <TableCell className="text-sm text-right font-mono font-semibold">{r?.roi_percentage ?? 0}%</TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
                           </div>
                         </CardContent>
                       </Card>
@@ -2113,6 +1852,304 @@ Based on this self-evaluation, generate accurate skill radar data (current_score
                           </p>
                         </CardContent>
                       </Card>
+                    )}
+                  </div>
+                )}
+
+                {/* SECTION: Content Library */}
+                {activeManagerSection === 'content-library' && (
+                  <div className="space-y-6">
+                    {/* Header with Add button */}
+                    <Card className="shadow-md hover:shadow-lg transition-shadow">
+                      <CardContent className="p-5 flex items-center justify-between">
+                        <div>
+                          <h3 className="font-serif font-semibold text-base tracking-wide">Learning Content Library</h3>
+                          <p className="text-xs text-muted-foreground font-sans mt-0.5">Upload and manage learning resources tagged by department and role</p>
+                        </div>
+                        <Button onClick={() => setShowAddContent(!showAddContent)}>
+                          {showAddContent ? <><FiX className="mr-2" /> Cancel</> : <><FiPlus className="mr-2" /> Add Content</>}
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {/* Add Content Form */}
+                    {showAddContent && (
+                      <Card className="shadow-md border-primary/20 bg-primary/[0.02]">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiUploadCloud className="text-primary" /> Add Learning Content</CardTitle>
+                          <CardDescription className="font-sans">Upload a new learning resource for employees</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-5">
+                          {/* Content Type Selection */}
+                          <div className="space-y-2">
+                            <Label className="font-sans text-sm font-medium">Content Type</Label>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                              {CONTENT_TYPE_OPTIONS.map(opt => {
+                                const IconComp = opt.icon
+                                return (
+                                  <button
+                                    key={opt.value}
+                                    onClick={() => setNewContentType(opt.value)}
+                                    className={`p-3 rounded-lg border text-left transition-all ${
+                                      newContentType === opt.value
+                                        ? 'bg-primary/10 border-primary/30 ring-1 ring-primary/20'
+                                        : 'bg-card border-border hover:bg-secondary/50'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <IconComp className={`text-sm ${newContentType === opt.value ? 'text-primary' : 'text-muted-foreground'}`} />
+                                      <span className={`text-xs font-medium ${newContentType === opt.value ? 'text-primary' : ''}`}>{opt.label}</span>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground leading-tight">{opt.description}</p>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Title & URL */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="font-sans text-sm font-medium">Title <span className="text-destructive">*</span></Label>
+                              <input
+                                type="text"
+                                value={newContentTitle}
+                                onChange={(e) => setNewContentTitle(e.target.value)}
+                                placeholder="e.g., Advanced System Design Workshop"
+                                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm font-sans focus:outline-none focus:ring-2 focus:ring-ring"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="font-sans text-sm font-medium">
+                                {newContentType === 'video_url' ? 'Video URL' : newContentType === 'website_url' ? 'Website URL' : 'File URL / Link'} <span className="text-destructive">*</span>
+                              </Label>
+                              <div className="relative">
+                                <input
+                                  type="url"
+                                  value={newContentUrl}
+                                  onChange={(e) => setNewContentUrl(e.target.value)}
+                                  placeholder={
+                                    newContentType === 'video_url' ? 'https://youtube.com/watch?v=...'
+                                    : newContentType === 'website_url' ? 'https://example.com/article'
+                                    : 'https://drive.google.com/file/...'
+                                  }
+                                  className="w-full h-10 px-3 pr-9 rounded-md border border-input bg-background text-sm font-sans focus:outline-none focus:ring-2 focus:ring-ring"
+                                />
+                                <FiLink className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Description */}
+                          <div className="space-y-2">
+                            <Label className="font-sans text-sm font-medium">Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                            <Textarea
+                              value={newContentDescription}
+                              onChange={(e) => setNewContentDescription(e.target.value)}
+                              placeholder="Brief description of this learning resource..."
+                              rows={2}
+                              className="resize-none text-sm"
+                            />
+                          </div>
+
+                          <Separator />
+
+                          {/* Department Tags */}
+                          <div className="space-y-2">
+                            <Label className="font-sans text-sm font-medium flex items-center gap-1.5"><FiTag className="text-xs text-primary" /> Tag by Department</Label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {DEPARTMENT_OPTIONS.map(dept => (
+                                <button
+                                  key={dept}
+                                  onClick={() => toggleDepartment(dept)}
+                                  className={`px-2.5 py-1 rounded-md text-xs font-sans transition-all border ${
+                                    newContentDepartments.includes(dept)
+                                      ? 'bg-primary text-primary-foreground border-primary font-medium'
+                                      : 'bg-card text-muted-foreground border-border hover:bg-secondary hover:text-foreground'
+                                  }`}
+                                >
+                                  {dept}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Role Tags */}
+                          <div className="space-y-2">
+                            <Label className="font-sans text-sm font-medium flex items-center gap-1.5"><FiBriefcase className="text-xs text-primary" /> Tag by Role</Label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {ROLES.map(role => (
+                                <button
+                                  key={role}
+                                  onClick={() => toggleRole(role)}
+                                  className={`px-2.5 py-1 rounded-md text-xs font-sans transition-all border ${
+                                    newContentRoles.includes(role)
+                                      ? 'bg-accent text-accent-foreground border-accent font-medium'
+                                      : 'bg-card text-muted-foreground border-border hover:bg-secondary hover:text-foreground'
+                                  }`}
+                                >
+                                  {role}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <Separator />
+
+                          <div className="flex justify-end gap-3">
+                            <Button variant="outline" onClick={() => setShowAddContent(false)}>Cancel</Button>
+                            <Button onClick={handleAddContent} disabled={!newContentTitle.trim() || !newContentUrl.trim()}>
+                              <FiUploadCloud className="mr-2" /> Add to Library
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Filters */}
+                    {contentItems.length > 0 && (
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-xs text-muted-foreground font-sans whitespace-nowrap">Department:</Label>
+                          <Select value={contentFilterDept} onValueChange={setContentFilterDept}>
+                            <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Departments</SelectItem>
+                              {DEPARTMENT_OPTIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-xs text-muted-foreground font-sans whitespace-nowrap">Type:</Label>
+                          <Select value={contentFilterType} onValueChange={setContentFilterType}>
+                            <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All Types</SelectItem>
+                              {CONTENT_TYPE_OPTIONS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="ml-auto">
+                          <Badge variant="secondary" className="text-xs font-mono">{filteredContent.length} item{filteredContent.length !== 1 ? 's' : ''}</Badge>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Content Items List */}
+                    {filteredContent.length > 0 ? (
+                      <div className="space-y-3">
+                        {filteredContent.map(item => {
+                          const TypeIcon = contentTypeIcon(item.type)
+                          const typeLabel = CONTENT_TYPE_OPTIONS.find(o => o.value === item.type)?.label ?? item.type
+                          return (
+                            <Card key={item.id} className="shadow-md hover:shadow-lg transition-shadow">
+                              <CardContent className="p-4">
+                                <div className="flex items-start gap-4">
+                                  {/* Type Icon */}
+                                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                    item.type === 'video_url' ? 'bg-red-600/10' :
+                                    item.type === 'website_url' ? 'bg-blue-600/10' :
+                                    item.type === 'pdf' ? 'bg-orange-600/10' : 'bg-green-600/10'
+                                  }`}>
+                                    <TypeIcon className={`text-lg ${
+                                      item.type === 'video_url' ? 'text-red-600' :
+                                      item.type === 'website_url' ? 'text-blue-600' :
+                                      item.type === 'pdf' ? 'text-orange-600' : 'text-green-600'
+                                    }`} />
+                                  </div>
+
+                                  {/* Content Info */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <p className="font-medium text-sm truncate">{item.title}</p>
+                                      <Badge variant="outline" className="text-[10px] flex-shrink-0">{typeLabel}</Badge>
+                                    </div>
+                                    {item.description && (
+                                      <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{item.description}</p>
+                                    )}
+                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+                                      <FiLink className="text-xs flex-shrink-0" />
+                                      <span className="truncate max-w-[400px] font-mono text-[11px]">{item.url}</span>
+                                    </div>
+
+                                    {/* Tags */}
+                                    <div className="flex flex-wrap gap-1">
+                                      {item.departments.map(d => (
+                                        <Badge key={d} variant="secondary" className="text-[10px] font-sans">{d}</Badge>
+                                      ))}
+                                      {item.roles.map(r => (
+                                        <Badge key={r} variant="outline" className="text-[10px] font-sans bg-accent/5">{r}</Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {/* Actions */}
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <span className="text-[10px] text-muted-foreground font-mono mr-2">
+                                      {new Date(item.addedAt).toLocaleDateString()}
+                                    </span>
+                                    <button
+                                      onClick={() => handleRemoveContent(item.id)}
+                                      className="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                      title="Remove content"
+                                    >
+                                      <FiTrash2 className="text-sm" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <Card className="shadow-md">
+                        <CardContent className="p-12 text-center">
+                          <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                            <FiFolder className="text-primary text-2xl" />
+                          </div>
+                          <h3 className="font-serif text-xl font-semibold mb-2">Content Library</h3>
+                          <p className="text-muted-foreground text-sm max-w-md mx-auto leading-relaxed font-sans">
+                            {contentItems.length === 0
+                              ? 'No learning content added yet. Click "Add Content" to upload video URLs, documents, PDFs, or website links and tag them by department and role.'
+                              : 'No content matches the current filters. Try adjusting the department or type filter above.'}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {/* Summary Stats */}
+                    {contentItems.length > 0 && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Card className="shadow-md">
+                          <CardContent className="p-4 text-center">
+                            <FiFolder className="mx-auto text-primary text-lg mb-1" />
+                            <p className="font-mono text-2xl font-bold">{contentItems.length}</p>
+                            <p className="text-xs text-muted-foreground font-sans">Total Resources</p>
+                          </CardContent>
+                        </Card>
+                        <Card className="shadow-md">
+                          <CardContent className="p-4 text-center">
+                            <FiVideo className="mx-auto text-red-600 text-lg mb-1" />
+                            <p className="font-mono text-2xl font-bold">{contentItems.filter(c => c.type === 'video_url').length}</p>
+                            <p className="text-xs text-muted-foreground font-sans">Videos</p>
+                          </CardContent>
+                        </Card>
+                        <Card className="shadow-md">
+                          <CardContent className="p-4 text-center">
+                            <FiFile className="mx-auto text-green-600 text-lg mb-1" />
+                            <p className="font-mono text-2xl font-bold">{contentItems.filter(c => c.type === 'document' || c.type === 'pdf').length}</p>
+                            <p className="text-xs text-muted-foreground font-sans">Documents</p>
+                          </CardContent>
+                        </Card>
+                        <Card className="shadow-md">
+                          <CardContent className="p-4 text-center">
+                            <FiGlobe className="mx-auto text-blue-600 text-lg mb-1" />
+                            <p className="font-mono text-2xl font-bold">{contentItems.filter(c => c.type === 'website_url').length}</p>
+                            <p className="text-xs text-muted-foreground font-sans">Web Resources</p>
+                          </CardContent>
+                        </Card>
+                      </div>
                     )}
                   </div>
                 )}
