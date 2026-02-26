@@ -1,0 +1,93 @@
+{
+  "agents": {
+    "skill_gap_analysis_agent": {
+      "agent_id": "69a01259fddac4fa01fac5c4",
+      "name": "Skill Gap Analysis Agent",
+      "description": "Generates adaptive role-based diagnostic assessments, scores responses using weighted proficiency engine, maps current skills against target role competency frameworks, and classifies gaps",
+      "model": "gpt-4o-mini",
+      "provider": "OpenAI",
+      "temperature": 0.4,
+      "top_p": 0.95,
+      "agent_type": "sub-agent",
+      "parent_agent_id": "69a012c83dc260b752bd74f1"
+    },
+    "learning_path_agent": {
+      "agent_id": "69a0128e5b61f44b7feefca0",
+      "name": "Learning Path Agent",
+      "description": "Generates personalized adaptive learning journeys based on prioritized skill gaps with courses, certifications, and stretch assignments",
+      "model": "gpt-4o-mini",
+      "provider": "OpenAI",
+      "temperature": 0.5,
+      "top_p": 0.95,
+      "agent_type": "sub-agent",
+      "parent_agent_id": "69a012c83dc260b752bd74f1"
+    },
+    "internal_mobility_agent": {
+      "agent_id": "69a0128ec083fda5b47d1dbb",
+      "name": "Internal Mobility Agent",
+      "description": "Scans internal open roles against employee profile, calculates transition readiness scores, and generates upskilling roadmaps for career mobility",
+      "model": "gpt-4o-mini",
+      "provider": "OpenAI",
+      "temperature": 0.3,
+      "top_p": 1,
+      "agent_type": "sub-agent",
+      "parent_agent_id": "69a012c83dc260b752bd74f1"
+    },
+    "training_roi_agent": {
+      "agent_id": "69a0128efddac4fa01fac5cf",
+      "name": "Training ROI Agent",
+      "description": "Measures learning impact on performance, calculates Learning Effectiveness Score, Skill Acquisition Velocity, and Program ROI at employee and organizational level",
+      "model": "gpt-4o-mini",
+      "provider": "OpenAI",
+      "temperature": 0.2,
+      "top_p": 1,
+      "agent_type": "sub-agent",
+      "parent_agent_id": "69a012c83dc260b752bd74f1"
+    },
+    "learning_orchestrator_agent": {
+      "agent_id": "69a012c83dc260b752bd74f1",
+      "name": "Learning Orchestrator Agent",
+      "description": "Central intelligence layer that coordinates all employee-facing sub-agents, routes assessment requests, aggregates skill gap analysis with learning paths and mobility data, and returns a unified employee dashboard output",
+      "model": "gpt-4o-mini",
+      "provider": "OpenAI",
+      "temperature": 0.3,
+      "top_p": 1,
+      "agent_type": "manager",
+      "managed_agents": [
+        "69a01259fddac4fa01fac5c4",
+        "69a0128e5b61f44b7feefca0",
+        "69a0128ec083fda5b47d1dbb",
+        "69a0128efddac4fa01fac5cf"
+      ]
+    },
+    "workforce_intelligence_agent": {
+      "agent_id": "69a012c85fed26b186572e52",
+      "name": "Workforce Intelligence Agent",
+      "description": "Independently queries aggregated Skill Graph data to produce org-wide skill heatmaps, skill distribution, shortage index, readiness funnels, and learning effectiveness analytics",
+      "model": "gpt-4o-mini",
+      "provider": "OpenAI",
+      "temperature": 0.3,
+      "top_p": 1,
+      "agent_type": "independent"
+    },
+    "predictive_capability_gap_agent": {
+      "agent_id": "69a012dc3dc260b752bd74f3",
+      "name": "Predictive Capability Gap Agent",
+      "description": "Forecasts future skill shortages, identifies capability misalignment with business strategy, runs hiring vs upskilling simulations, and generates workforce readiness projections",
+      "model": "sonar-pro",
+      "provider": "Perplexity",
+      "temperature": 0.3,
+      "top_p": 1,
+      "agent_type": "independent"
+    }
+  },
+  "agent_ids": {
+    "skill_gap_analysis_agent": "69a01259fddac4fa01fac5c4",
+    "learning_path_agent": "69a0128e5b61f44b7feefca0",
+    "internal_mobility_agent": "69a0128ec083fda5b47d1dbb",
+    "training_roi_agent": "69a0128efddac4fa01fac5cf",
+    "learning_orchestrator_agent": "69a012c83dc260b752bd74f1",
+    "workforce_intelligence_agent": "69a012c85fed26b186572e52",
+    "predictive_capability_gap_agent": "69a012dc3dc260b752bd74f3"
+  }
+}

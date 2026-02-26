@@ -1,0 +1,74 @@
+{
+  "agent_name": "Predictive Capability Gap Agent",
+  "agent_id": "69a012dc3dc260b752bd74f3",
+  "agent_type": "json",
+  "accessor": "json",
+  "has_module_outputs": false,
+  "response_schema": {
+    "type": "object",
+    "properties": {
+      "scenario": {"type": "string"},
+      "forecast_horizon_months": {"type": "number"},
+      "skill_shortage_forecasts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "skill_name": {"type": "string"},
+            "current_supply": {"type": "number"},
+            "projected_demand": {"type": "number"},
+            "gap_at_6_months": {"type": "number"},
+            "gap_at_12_months": {"type": "number"},
+            "gap_at_18_months": {"type": "number"},
+            "severity": {"type": "string"}
+          },
+          "required": ["skill_name", "current_supply", "projected_demand", "gap_at_6_months", "gap_at_12_months", "gap_at_18_months", "severity"]
+        }
+      },
+      "hiring_vs_upskilling": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "skill_name": {"type": "string"},
+            "hire_cost": {"type": "number"},
+            "hire_time_months": {"type": "number"},
+            "upskill_cost": {"type": "number"},
+            "upskill_time_months": {"type": "number"},
+            "recommendation": {"type": "string"},
+            "confidence": {"type": "number"}
+          },
+          "required": ["skill_name", "hire_cost", "hire_time_months", "upskill_cost", "upskill_time_months", "recommendation", "confidence"]
+        }
+      },
+      "readiness_projections": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "month": {"type": "number"},
+            "readiness_percentage": {"type": "number"},
+            "confidence_lower": {"type": "number"},
+            "confidence_upper": {"type": "number"}
+          },
+          "required": ["month", "readiness_percentage", "confidence_lower", "confidence_upper"]
+        }
+      },
+      "strategic_recommendations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "title": {"type": "string"},
+            "description": {"type": "string"},
+            "priority": {"type": "string"},
+            "impact": {"type": "string"},
+            "timeline": {"type": "string"}
+          },
+          "required": ["title", "description", "priority", "impact", "timeline"]
+        }
+      }
+    },
+    "required": ["scenario", "forecast_horizon_months", "skill_shortage_forecasts", "hiring_vs_upskilling", "readiness_projections", "strategic_recommendations"]
+  }
+}

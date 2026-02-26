@@ -1,0 +1,115 @@
+{
+  "agent_name": "Workforce Intelligence Agent",
+  "agent_id": "69a012c85fed26b186572e52",
+  "agent_type": "json",
+  "accessor": "json",
+  "has_module_outputs": false,
+  "response_schema": {
+    "type": "object",
+    "properties": {
+      "summary_cards": {
+        "type": "object",
+        "properties": {
+          "total_employees_assessed": {"type": "number"},
+          "critical_skill_gaps": {"type": "number"},
+          "avg_readiness_score": {"type": "number"},
+          "learning_roi_percentage": {"type": "number"}
+        },
+        "required": ["total_employees_assessed", "critical_skill_gaps", "avg_readiness_score", "learning_roi_percentage"]
+      },
+      "skill_heatmap": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "department": {"type": "string"},
+            "skills": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "skill_name": {"type": "string"},
+                  "proficiency": {"type": "number"},
+                  "gap_severity": {"type": "string"}
+                },
+                "required": ["skill_name", "proficiency", "gap_severity"]
+              }
+            }
+          },
+          "required": ["department", "skills"]
+        }
+      },
+      "shortage_index": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "skill_name": {"type": "string"},
+            "shortage_severity": {"type": "string"},
+            "affected_departments": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "employees_with_skill": {"type": "number"},
+            "employees_needing_skill": {"type": "number"}
+          },
+          "required": ["skill_name", "shortage_severity", "affected_departments", "employees_with_skill", "employees_needing_skill"]
+        }
+      },
+      "readiness_funnel": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "role": {"type": "string"},
+            "not_ready": {"type": "number"},
+            "developing": {"type": "number"},
+            "nearly_ready": {"type": "number"},
+            "ready": {"type": "number"}
+          },
+          "required": ["role", "not_ready", "developing", "nearly_ready", "ready"]
+        }
+      },
+      "effectiveness_analytics": {
+        "type": "object",
+        "properties": {
+          "adoption_rate": {"type": "number"},
+          "completion_rate": {"type": "number"},
+          "avg_skill_lift": {"type": "number"},
+          "performance_correlation": {"type": "number"},
+          "retention_correlation": {"type": "number"},
+          "promotion_acceleration": {"type": "number"}
+        },
+        "required": ["adoption_rate", "completion_rate", "avg_skill_lift", "performance_correlation", "retention_correlation", "promotion_acceleration"]
+      },
+      "roi_by_department": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "department": {"type": "string"},
+            "investment": {"type": "number"},
+            "returns": {"type": "number"},
+            "roi_percentage": {"type": "number"}
+          },
+          "required": ["department", "investment", "returns", "roi_percentage"]
+        }
+      },
+      "underperforming_programs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "program_name": {"type": "string"},
+            "completion_rate": {"type": "number"},
+            "skill_lift": {"type": "number"},
+            "cost": {"type": "number"},
+            "recommendation": {"type": "string"}
+          },
+          "required": ["program_name", "completion_rate", "skill_lift", "cost", "recommendation"]
+        }
+      }
+    },
+    "required": ["summary_cards", "skill_heatmap", "shortage_index", "readiness_funnel", "effectiveness_analytics", "roi_by_department", "underperforming_programs"]
+  }
+}

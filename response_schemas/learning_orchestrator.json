@@ -1,0 +1,99 @@
+{
+  "agent_name": "Learning Orchestrator Agent",
+  "agent_id": "69a012c83dc260b752bd74f1",
+  "agent_type": "json",
+  "accessor": "json",
+  "has_module_outputs": false,
+  "response_schema": {
+    "type": "object",
+    "properties": {
+      "overall_readiness_score": {"type": "number"},
+      "employee_name": {"type": "string"},
+      "current_role": {"type": "string"},
+      "target_role": {"type": "string"},
+      "skill_radar_data": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "skill_name": {"type": "string"},
+            "current_score": {"type": "number"},
+            "required_score": {"type": "number"}
+          },
+          "required": ["skill_name", "current_score", "required_score"]
+        }
+      },
+      "gap_heatmap": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "skill_name": {"type": "string"},
+            "category": {"type": "string"},
+            "delta": {"type": "number"},
+            "classification": {"type": "string"}
+          },
+          "required": ["skill_name", "category", "delta", "classification"]
+        }
+      },
+      "learning_path": {
+        "type": "object",
+        "properties": {
+          "momentum_score": {"type": "number"},
+          "total_weeks": {"type": "number"},
+          "activities": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "title": {"type": "string"},
+                "type": {"type": "string"},
+                "skill": {"type": "string"},
+                "hours": {"type": "number"},
+                "sequence": {"type": "number"}
+              },
+              "required": ["title", "type", "skill", "hours", "sequence"]
+            }
+          }
+        },
+        "required": ["momentum_score", "total_weeks", "activities"]
+      },
+      "mobility_matches": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "role_title": {"type": "string"},
+            "department": {"type": "string"},
+            "readiness": {"type": "number"},
+            "gap_skills": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          },
+          "required": ["role_title", "department", "readiness", "gap_skills"]
+        }
+      },
+      "roi_metrics": {
+        "type": "object",
+        "properties": {
+          "effectiveness_score": {"type": "number"},
+          "acquisition_velocity": {"type": "number"},
+          "program_roi": {"type": "number"},
+          "retention_lift": {"type": "number"}
+        },
+        "required": ["effectiveness_score", "acquisition_velocity", "program_roi", "retention_lift"]
+      },
+      "gap_summary": {
+        "type": "object",
+        "properties": {
+          "critical_count": {"type": "number"},
+          "important_count": {"type": "number"},
+          "enhancement_count": {"type": "number"}
+        },
+        "required": ["critical_count", "important_count", "enhancement_count"]
+      }
+    },
+    "required": ["overall_readiness_score", "employee_name", "current_role", "target_role", "skill_radar_data", "gap_heatmap", "learning_path", "mobility_matches", "roi_metrics", "gap_summary"]
+  }
+}

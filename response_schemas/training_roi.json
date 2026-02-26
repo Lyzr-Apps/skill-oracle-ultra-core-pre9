@@ -1,0 +1,66 @@
+{
+  "agent_name": "Training ROI Agent",
+  "agent_id": "69a0128efddac4fa01fac5cf",
+  "agent_type": "json",
+  "accessor": "json",
+  "has_module_outputs": false,
+  "response_schema": {
+    "type": "object",
+    "properties": {
+      "learning_effectiveness_score": {"type": "number"},
+      "skill_acquisition_velocity": {"type": "number"},
+      "program_roi_percentage": {"type": "number"},
+      "performance_improvement": {
+        "type": "object",
+        "properties": {
+          "current_rating": {"type": "number"},
+          "projected_rating": {"type": "number"},
+          "improvement_probability": {"type": "number"}
+        },
+        "required": ["current_rating", "projected_rating", "improvement_probability"]
+      },
+      "promotion_velocity": {
+        "type": "object",
+        "properties": {
+          "current_trajectory_months": {"type": "number"},
+          "accelerated_trajectory_months": {"type": "number"},
+          "acceleration_percentage": {"type": "number"}
+        },
+        "required": ["current_trajectory_months", "accelerated_trajectory_months", "acceleration_percentage"]
+      },
+      "retention_impact": {
+        "type": "object",
+        "properties": {
+          "baseline_retention": {"type": "number"},
+          "projected_retention": {"type": "number"},
+          "retention_lift": {"type": "number"}
+        },
+        "required": ["baseline_retention", "projected_retention", "retention_lift"]
+      },
+      "productivity_indicators": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "indicator_name": {"type": "string"},
+            "current_value": {"type": "number"},
+            "projected_value": {"type": "number"},
+            "improvement_percentage": {"type": "number"}
+          },
+          "required": ["indicator_name", "current_value", "projected_value", "improvement_percentage"]
+        }
+      },
+      "investment_summary": {
+        "type": "object",
+        "properties": {
+          "total_learning_hours": {"type": "number"},
+          "estimated_cost": {"type": "number"},
+          "projected_value_generated": {"type": "number"},
+          "net_roi": {"type": "number"}
+        },
+        "required": ["total_learning_hours", "estimated_cost", "projected_value_generated", "net_roi"]
+      }
+    },
+    "required": ["learning_effectiveness_score", "skill_acquisition_velocity", "program_roi_percentage", "performance_improvement", "promotion_velocity", "retention_impact", "productivity_indicators", "investment_summary"]
+  }
+}

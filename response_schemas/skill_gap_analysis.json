@@ -1,0 +1,68 @@
+{
+  "agent_name": "Skill Gap Analysis Agent",
+  "agent_id": "69a01259fddac4fa01fac5c4",
+  "agent_type": "json",
+  "accessor": "json",
+  "has_module_outputs": false,
+  "response_schema": {
+    "type": "object",
+    "properties": {
+      "overall_readiness_percentage": {"type": "number"},
+      "confidence_score": {"type": "number"},
+      "behavioral_maturity_index": {"type": "number"},
+      "skill_assessments": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "skill_name": {"type": "string"},
+            "category": {"type": "string"},
+            "current_score": {"type": "number"},
+            "required_score": {"type": "number"},
+            "delta": {"type": "number"},
+            "classification": {"type": "string"},
+            "proficiency_level": {"type": "string"}
+          },
+          "required": ["skill_name", "category", "current_score", "required_score", "delta", "classification", "proficiency_level"]
+        }
+      },
+      "gap_summary": {
+        "type": "object",
+        "properties": {
+          "critical_count": {"type": "number"},
+          "important_count": {"type": "number"},
+          "enhancement_count": {"type": "number"},
+          "top_priority_skills": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        },
+        "required": ["critical_count", "important_count", "enhancement_count", "top_priority_skills"]
+      },
+      "assessment_questions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "question_id": {"type": "string"},
+            "question_text": {"type": "string"},
+            "skill_name": {"type": "string"},
+            "category": {"type": "string"},
+            "tier": {"type": "string"},
+            "response_type": {"type": "string"},
+            "options": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          },
+          "required": ["question_id", "question_text", "skill_name", "category", "tier", "response_type", "options"]
+        }
+      },
+      "recommendations": {
+        "type": "array",
+        "items": {"type": "string"}
+      }
+    },
+    "required": ["overall_readiness_percentage", "confidence_score", "behavioral_maturity_index", "skill_assessments", "gap_summary", "assessment_questions", "recommendations"]
+  }
+}

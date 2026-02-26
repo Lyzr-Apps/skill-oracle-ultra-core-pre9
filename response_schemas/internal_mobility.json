@@ -1,0 +1,54 @@
+{
+  "agent_name": "Internal Mobility Agent",
+  "agent_id": "69a0128ec083fda5b47d1dbb",
+  "agent_type": "json",
+  "accessor": "json",
+  "has_module_outputs": false,
+  "response_schema": {
+    "type": "object",
+    "properties": {
+      "mobility_matches": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "role_id": {"type": "string"},
+            "role_title": {"type": "string"},
+            "department": {"type": "string"},
+            "transition_readiness": {"type": "number"},
+            "matching_skills": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "gap_skills": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "upskilling_summary": {"type": "string"},
+            "estimated_transition_weeks": {"type": "number"},
+            "strategic_fit_score": {"type": "number"}
+          },
+          "required": ["role_id", "role_title", "department", "transition_readiness", "matching_skills", "gap_skills", "upskilling_summary", "estimated_transition_weeks", "strategic_fit_score"]
+        }
+      },
+      "career_paths": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "path_name": {"type": "string"},
+            "roles_sequence": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "total_transition_time": {"type": "string"},
+            "difficulty_rating": {"type": "string"}
+          },
+          "required": ["path_name", "roles_sequence", "total_transition_time", "difficulty_rating"]
+        }
+      },
+      "simulation_available": {"type": "boolean"}
+    },
+    "required": ["mobility_matches", "career_paths", "simulation_available"]
+  }
+}

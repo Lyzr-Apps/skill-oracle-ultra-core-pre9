@@ -1,0 +1,63 @@
+{
+  "agent_name": "Learning Path Agent",
+  "agent_id": "69a0128e5b61f44b7feefca0",
+  "agent_type": "json",
+  "accessor": "json",
+  "has_module_outputs": false,
+  "response_schema": {
+    "type": "object",
+    "properties": {
+      "learning_momentum_score": {"type": "number"},
+      "total_estimated_weeks": {"type": "number"},
+      "readiness_forecast": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "week": {"type": "number"},
+            "projected_readiness": {"type": "number"},
+            "milestone": {"type": "string"}
+          },
+          "required": ["week", "projected_readiness", "milestone"]
+        }
+      },
+      "learning_activities": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "activity_id": {"type": "string"},
+            "title": {"type": "string"},
+            "type": {"type": "string"},
+            "skill_addressed": {"type": "string"},
+            "gap_classification": {"type": "string"},
+            "provider": {"type": "string"},
+            "estimated_hours": {"type": "number"},
+            "difficulty": {"type": "string"},
+            "sequence_order": {"type": "number"},
+            "description": {"type": "string"}
+          },
+          "required": ["activity_id", "title", "type", "skill_addressed", "gap_classification", "provider", "estimated_hours", "difficulty", "sequence_order", "description"]
+        }
+      },
+      "milestones": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "milestone_id": {"type": "string"},
+            "title": {"type": "string"},
+            "target_week": {"type": "number"},
+            "skills_completed": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "readiness_at_completion": {"type": "number"}
+          },
+          "required": ["milestone_id", "title", "target_week", "skills_completed", "readiness_at_completion"]
+        }
+      }
+    },
+    "required": ["learning_momentum_score", "total_estimated_weeks", "readiness_forecast", "learning_activities", "milestones"]
+  }
+}

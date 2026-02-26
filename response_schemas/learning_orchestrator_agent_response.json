@@ -1,0 +1,118 @@
+{
+  "agent_name": "Learning Orchestrator Agent",
+  "agent_id": "69a012c83dc260b752bd74f1",
+  "description": "Central intelligence layer that coordinates all employee-facing sub-agents, routes assessment requests, aggregates skill gap analysis with learning paths and mobility data, and returns a unified employee dashboard output",
+  "agent_type": "json",
+  "accessor": "result",
+  "auto_generated": true,
+  "response_schema": {
+    "overall_readiness_score": "number",
+    "employee_name": "string",
+    "current_role": "string",
+    "target_role": "string",
+    "skill_radar_data": [
+      {
+        "skill_name": "string",
+        "current_score": "number",
+        "required_score": "number"
+      }
+    ],
+    "gap_heatmap": [
+      {
+        "skill_name": "string",
+        "category": "string",
+        "delta": "number",
+        "classification": "string"
+      }
+    ],
+    "learning_path": {
+      "momentum_score": "number",
+      "total_weeks": "number",
+      "activities": [
+        {
+          "title": "string",
+          "type": "string",
+          "skill": "string",
+          "hours": "number",
+          "sequence": "number"
+        }
+      ]
+    },
+    "mobility_matches": [
+      {
+        "role_title": "string",
+        "department": "string",
+        "readiness": "number",
+        "gap_skills": [
+          "string"
+        ]
+      }
+    ],
+    "roi_metrics": {
+      "effectiveness_score": "number",
+      "acquisition_velocity": "number",
+      "program_roi": "number",
+      "retention_lift": "number"
+    },
+    "gap_summary": {
+      "critical_count": "number",
+      "important_count": "number",
+      "enhancement_count": "number"
+    }
+  },
+  "example_response": {
+    "overall_readiness_score": 0,
+    "employee_name": "sample string",
+    "current_role": "sample string",
+    "target_role": "sample string",
+    "skill_radar_data": [
+      {
+        "skill_name": "sample string",
+        "current_score": 0,
+        "required_score": 0
+      }
+    ],
+    "gap_heatmap": [
+      {
+        "skill_name": "sample string",
+        "category": "sample string",
+        "delta": 0,
+        "classification": "sample string"
+      }
+    ],
+    "learning_path": {
+      "momentum_score": 0,
+      "total_weeks": 0,
+      "activities": [
+        {
+          "title": "sample string",
+          "type": "sample string",
+          "skill": "sample string",
+          "hours": 0,
+          "sequence": 0
+        }
+      ]
+    },
+    "mobility_matches": [
+      {
+        "role_title": "sample string",
+        "department": "sample string",
+        "readiness": 0,
+        "gap_skills": [
+          "sample string"
+        ]
+      }
+    ],
+    "roi_metrics": {
+      "effectiveness_score": 0,
+      "acquisition_velocity": 0,
+      "program_roi": 0,
+      "retention_lift": 0
+    },
+    "gap_summary": {
+      "critical_count": 0,
+      "important_count": 0,
+      "enhancement_count": 0
+    }
+  }
+}

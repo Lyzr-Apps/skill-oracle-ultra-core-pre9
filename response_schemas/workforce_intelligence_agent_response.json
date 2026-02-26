@@ -1,0 +1,138 @@
+{
+  "agent_name": "Workforce Intelligence Agent",
+  "agent_id": "69a012c85fed26b186572e52",
+  "description": "Independently queries aggregated Skill Graph data to produce org-wide skill heatmaps, skill distribution, shortage index, readiness funnels, and learning effectiveness analytics",
+  "agent_type": "json",
+  "accessor": "result",
+  "auto_generated": true,
+  "response_schema": {
+    "summary_cards": {
+      "total_employees_assessed": "number",
+      "critical_skill_gaps": "number",
+      "avg_readiness_score": "number",
+      "learning_roi_percentage": "number"
+    },
+    "skill_heatmap": [
+      {
+        "department": "string",
+        "skills": [
+          {
+            "skill_name": "string",
+            "proficiency": "number",
+            "gap_severity": "string"
+          }
+        ]
+      }
+    ],
+    "shortage_index": [
+      {
+        "skill_name": "string",
+        "shortage_severity": "string",
+        "affected_departments": [
+          "string"
+        ],
+        "employees_with_skill": "number",
+        "employees_needing_skill": "number"
+      }
+    ],
+    "readiness_funnel": [
+      {
+        "role": "string",
+        "not_ready": "number",
+        "developing": "number",
+        "nearly_ready": "number",
+        "ready": "number"
+      }
+    ],
+    "effectiveness_analytics": {
+      "adoption_rate": "number",
+      "completion_rate": "number",
+      "avg_skill_lift": "number",
+      "performance_correlation": "number",
+      "retention_correlation": "number",
+      "promotion_acceleration": "number"
+    },
+    "roi_by_department": [
+      {
+        "department": "string",
+        "investment": "number",
+        "returns": "number",
+        "roi_percentage": "number"
+      }
+    ],
+    "underperforming_programs": [
+      {
+        "program_name": "string",
+        "completion_rate": "number",
+        "skill_lift": "number",
+        "cost": "number",
+        "recommendation": "string"
+      }
+    ]
+  },
+  "example_response": {
+    "summary_cards": {
+      "total_employees_assessed": 0,
+      "critical_skill_gaps": 0,
+      "avg_readiness_score": 0,
+      "learning_roi_percentage": 0
+    },
+    "skill_heatmap": [
+      {
+        "department": "sample string",
+        "skills": [
+          {
+            "skill_name": "sample string",
+            "proficiency": 0,
+            "gap_severity": "sample string"
+          }
+        ]
+      }
+    ],
+    "shortage_index": [
+      {
+        "skill_name": "sample string",
+        "shortage_severity": "sample string",
+        "affected_departments": [
+          "sample string"
+        ],
+        "employees_with_skill": 0,
+        "employees_needing_skill": 0
+      }
+    ],
+    "readiness_funnel": [
+      {
+        "role": "sample string",
+        "not_ready": 0,
+        "developing": 0,
+        "nearly_ready": 0,
+        "ready": 0
+      }
+    ],
+    "effectiveness_analytics": {
+      "adoption_rate": 0,
+      "completion_rate": 0,
+      "avg_skill_lift": 0,
+      "performance_correlation": 0,
+      "retention_correlation": 0,
+      "promotion_acceleration": 0
+    },
+    "roi_by_department": [
+      {
+        "department": "sample string",
+        "investment": 0,
+        "returns": 0,
+        "roi_percentage": 0
+      }
+    ],
+    "underperforming_programs": [
+      {
+        "program_name": "sample string",
+        "completion_rate": 0,
+        "skill_lift": 0,
+        "cost": 0,
+        "recommendation": "sample string"
+      }
+    ]
+  }
+}

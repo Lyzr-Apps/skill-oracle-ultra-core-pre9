@@ -1,0 +1,94 @@
+{
+  "agent_name": "Predictive Capability Gap Agent",
+  "agent_id": "69a012dc3dc260b752bd74f3",
+  "description": "Forecasts future skill shortages, identifies capability misalignment with business strategy, runs hiring vs upskilling simulations, and generates workforce readiness projections",
+  "agent_type": "json",
+  "accessor": "result",
+  "auto_generated": true,
+  "response_schema": {
+    "scenario": "string",
+    "forecast_horizon_months": "number",
+    "skill_shortage_forecasts": [
+      {
+        "skill_name": "string",
+        "current_supply": "number",
+        "projected_demand": "number",
+        "gap_at_6_months": "number",
+        "gap_at_12_months": "number",
+        "gap_at_18_months": "number",
+        "severity": "string"
+      }
+    ],
+    "hiring_vs_upskilling": [
+      {
+        "skill_name": "string",
+        "hire_cost": "number",
+        "hire_time_months": "number",
+        "upskill_cost": "number",
+        "upskill_time_months": "number",
+        "recommendation": "string",
+        "confidence": "number"
+      }
+    ],
+    "readiness_projections": [
+      {
+        "month": "number",
+        "readiness_percentage": "number",
+        "confidence_lower": "number",
+        "confidence_upper": "number"
+      }
+    ],
+    "strategic_recommendations": [
+      {
+        "title": "string",
+        "description": "string",
+        "priority": "string",
+        "impact": "string",
+        "timeline": "string"
+      }
+    ]
+  },
+  "example_response": {
+    "scenario": "sample string",
+    "forecast_horizon_months": 0,
+    "skill_shortage_forecasts": [
+      {
+        "skill_name": "sample string",
+        "current_supply": 0,
+        "projected_demand": 0,
+        "gap_at_6_months": 0,
+        "gap_at_12_months": 0,
+        "gap_at_18_months": 0,
+        "severity": "sample string"
+      }
+    ],
+    "hiring_vs_upskilling": [
+      {
+        "skill_name": "sample string",
+        "hire_cost": 0,
+        "hire_time_months": 0,
+        "upskill_cost": 0,
+        "upskill_time_months": 0,
+        "recommendation": "sample string",
+        "confidence": 0
+      }
+    ],
+    "readiness_projections": [
+      {
+        "month": 0,
+        "readiness_percentage": 0,
+        "confidence_lower": 0,
+        "confidence_upper": 0
+      }
+    ],
+    "strategic_recommendations": [
+      {
+        "title": "sample string",
+        "description": "sample string",
+        "priority": "sample string",
+        "impact": "sample string",
+        "timeline": "sample string"
+      }
+    ]
+  }
+}
