@@ -1131,45 +1131,326 @@ Based on this self-evaluation, generate accurate skill radar data (current_score
                 )}
 
                 {/* SECTION: Skill Radar & Readiness */}
-                {activeEmployeeSection === 'radar' && hasEmployeeData && displayOrchestrator && (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <Card className="shadow-md hover:shadow-lg transition-shadow">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="font-serif text-lg tracking-wide">Assessment Result</CardTitle>
-                          <CardDescription className="font-sans">
-                            {displayOrchestrator.employee_name ?? 'Employee'} - {currentRole || displayOrchestrator.current_role || 'Current Role'} to {targetRole || displayOrchestrator.target_role || 'Target Role'}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex flex-col items-center">
-                          <ReadinessGauge score={displayOrchestrator.overall_readiness_score ?? 0} />
-                          <p className="text-xs text-muted-foreground mt-2 text-center font-sans">Overall Readiness Score</p>
-                        </CardContent>
+                {activeEmployeeSection === 'radar' && hasEmployeeData && displayOrchestrator && (() => {
+                  const radarSkills = Array.isArray(displayOrchestrator.skill_radar_data) ? displayOrchestrator.skill_radar_data : []
+                  const readiness = displayOrchestrator.overall_readiness_score ?? 0
+                  const gaps = Array.isArray(displayOrchestrator.gap_heatmap) ? displayOrchestrator.gap_heatmap : []
+                  const gapSummary = displayOrchestrator.gap_summary ?? { critical_count: 0, important_count: 0, enhancement_count: 0 }
+                  const totalGapsCount = gapSummary.critical_count + gapSummary.important_count + gapSummary.enhancement_count
+
+                  // Derived insights
+                  const avgCurrent = radarSkills.length > 0 ? Math.round(radarSkills.reduce((s, r) => s + (r?.current_score ?? 0), 0) / radarSkills.length) : 0
+                  const avgRequired = radarSkills.length > 0 ? Math.round(radarSkills.reduce((s, r) => s + (r?.required_score ?? 0), 0) / radarSkills.length) : 0
+                  const strongestSkills = [...radarSkills].sort((a, b) => (b?.current_score ?? 0) - (a?.current_score ?? 0)).slice(0, 3)
+                  const weakestSkills = [...radarSkills].sort((a, b) => {
+                    const gapA = (a?.required_score ?? 0) - (a?.current_score ?? 0)
+                    const gapB = (b?.required_score ?? 0) - (b?.current_score ?? 0)
+                    return gapB - gapA
+                  }).slice(0, 3)
+                  const sortedByGap = [...radarSkills].sort((a, b) => {
+                    const gapA = (a?.required_score ?? 0) - (a?.current_score ?? 0)
+                    const gapB = (b?.required_score ?? 0) - (b?.current_score ?? 0)
+                    return gapB - gapA
+                  })
+                  const readinessLevel = readiness >= 80 ? 'Strong' : readiness >= 60 ? 'Moderate' : readiness >= 40 ? 'Developing' : 'Early Stage'
+                  const readinessColor = readiness >= 80 ? 'text-green-700' : readiness >= 60 ? 'text-accent-foreground' : readiness >= 40 ? 'text-orange-600' : 'text-destructive'
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Hero Assessment Banner */}
+                      <Card className="shadow-lg border-primary/15 overflow-hidden">
+                        <div className="bg-gradient-to-r from-primary/[0.06] via-primary/[0.03] to-transparent">
+                          <CardContent className="p-6">
+                            <div className="flex items-start gap-6">
+                              {/* Readiness Gauge */}
+                              <div className="flex-shrink-0">
+                                <ReadinessGauge score={readiness} />
+                              </div>
+
+                              {/* Profile & Transition Info */}
+                              <div className="flex-1 min-w-0 py-2">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <FiUser className="text-primary text-sm" />
+                                  <h3 className="font-serif text-lg font-bold tracking-wide">{displayOrchestrator.employee_name ?? 'Employee'}</h3>
+                                  <Badge variant="outline" className={`text-xs font-mono ${readinessColor}`}>{readinessLevel}</Badge>
+                                </div>
+
+                                <div className="flex items-center gap-2 mb-4">
+                                  <span className="text-sm font-sans text-muted-foreground">{currentRole || displayOrchestrator.current_role || 'Current Role'}</span>
+                                  <FiArrowRight className="text-primary text-xs flex-shrink-0" />
+                                  <span className="text-sm font-sans font-medium">{targetRole || displayOrchestrator.target_role || 'Target Role'}</span>
+                                </div>
+
+                                {/* Quick Stats Row */}
+                                <div className="grid grid-cols-4 gap-3">
+                                  <div className="p-2.5 rounded-lg bg-card border border-border">
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-sans">Avg Current</p>
+                                    <p className="font-mono text-lg font-bold mt-0.5">{avgCurrent}<span className="text-xs text-muted-foreground">/100</span></p>
+                                  </div>
+                                  <div className="p-2.5 rounded-lg bg-card border border-border">
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-sans">Avg Required</p>
+                                    <p className="font-mono text-lg font-bold mt-0.5">{avgRequired}<span className="text-xs text-muted-foreground">/100</span></p>
+                                  </div>
+                                  <div className="p-2.5 rounded-lg bg-card border border-border">
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-sans">Avg Gap</p>
+                                    <p className={`font-mono text-lg font-bold mt-0.5 ${avgRequired - avgCurrent > 20 ? 'text-destructive' : 'text-accent-foreground'}`}>-{avgRequired - avgCurrent}<span className="text-xs text-muted-foreground"> pts</span></p>
+                                  </div>
+                                  <div className="p-2.5 rounded-lg bg-card border border-border">
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-sans">Skills Assessed</p>
+                                    <p className="font-mono text-lg font-bold mt-0.5">{radarSkills.length}</p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Gap Summary Mini */}
+                              <div className="flex-shrink-0 hidden lg:flex flex-col gap-2 py-2">
+                                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">Gap Breakdown</p>
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2.5 h-2.5 rounded-full bg-destructive flex-shrink-0" />
+                                  <span className="text-xs text-muted-foreground font-sans w-16">Critical</span>
+                                  <span className="font-mono text-sm font-bold">{gapSummary.critical_count}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2.5 h-2.5 rounded-full bg-accent flex-shrink-0" />
+                                  <span className="text-xs text-muted-foreground font-sans w-16">Important</span>
+                                  <span className="font-mono text-sm font-bold">{gapSummary.important_count}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/40 flex-shrink-0" />
+                                  <span className="text-xs text-muted-foreground font-sans w-16">Enhance</span>
+                                  <span className="font-mono text-sm font-bold">{gapSummary.enhancement_count}</span>
+                                </div>
+                                <Separator className="my-1" />
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2.5 h-2.5 flex-shrink-0" />
+                                  <span className="text-xs text-muted-foreground font-sans w-16 font-medium">Total</span>
+                                  <span className="font-mono text-sm font-bold">{totalGapsCount}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </div>
                       </Card>
-                      <div className="md:col-span-2">
-                        <Card className="shadow-md hover:shadow-lg transition-shadow">
+
+                      {/* Radar Chart + Strengths/Weaknesses */}
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Radar Chart - Takes 2/3 */}
+                        <Card className="lg:col-span-2 shadow-md hover:shadow-lg transition-shadow">
                           <CardHeader className="pb-2">
-                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiTarget className="text-primary" /> Skill Radar</CardTitle>
-                            <CardDescription className="font-sans">Current vs. required competency scores</CardDescription>
+                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiTarget className="text-primary" /> Competency Radar</CardTitle>
+                            <CardDescription className="font-sans">Visual comparison of your current skills against target role requirements</CardDescription>
                           </CardHeader>
                           <CardContent>
-                            <ResponsiveContainer width="100%" height={340}>
-                              <RadarChart data={Array.isArray(displayOrchestrator.skill_radar_data) ? displayOrchestrator.skill_radar_data : []}>
+                            <ResponsiveContainer width="100%" height={380}>
+                              <RadarChart data={radarSkills}>
                                 <PolarGrid stroke="hsl(35, 15%, 75%)" />
                                 <PolarAngleAxis dataKey="skill_name" tick={{ fill: 'hsl(30, 22%, 14%)', fontSize: 11 }} />
                                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10 }} />
-                                <Radar name="Current" dataKey="current_score" stroke={CHART_COLORS.c1} fill={CHART_COLORS.c1} fillOpacity={0.3} />
-                                <Radar name="Required" dataKey="required_score" stroke={CHART_COLORS.c2} fill={CHART_COLORS.c2} fillOpacity={0.15} />
-                                <Legend />
-                                <Tooltip />
+                                <Radar name="Current Level" dataKey="current_score" stroke={CHART_COLORS.c1} fill={CHART_COLORS.c1} fillOpacity={0.3} strokeWidth={2} />
+                                <Radar name="Required Level" dataKey="required_score" stroke={CHART_COLORS.c2} fill={CHART_COLORS.c2} fillOpacity={0.1} strokeWidth={2} strokeDasharray="5 5" />
+                                <Legend wrapperStyle={{ fontSize: 12 }} />
+                                <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, border: '1px solid hsl(35, 15%, 80%)' }} />
                               </RadarChart>
                             </ResponsiveContainer>
+                            <div className="flex items-center justify-center gap-6 mt-2 text-xs text-muted-foreground font-sans">
+                              <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 rounded" style={{ backgroundColor: CHART_COLORS.c1 }} /> Solid line = Your current skills</span>
+                              <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 rounded border-t-2 border-dashed" style={{ borderColor: CHART_COLORS.c2 }} /> Dashed line = Target requirements</span>
+                            </div>
                           </CardContent>
                         </Card>
+
+                        {/* Strengths & Growth Areas - Takes 1/3 */}
+                        <div className="space-y-6">
+                          {/* Top Strengths */}
+                          <Card className="shadow-md hover:shadow-lg transition-shadow">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="font-serif text-base tracking-wide flex items-center gap-2">
+                                <FiAward className="text-green-600" /> Top Strengths
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2.5">
+                              {strongestSkills.map((skill, i) => {
+                                const gap = (skill?.required_score ?? 0) - (skill?.current_score ?? 0)
+                                const isReady = gap <= 10
+                                return (
+                                  <div key={i} className="p-2.5 rounded-lg bg-green-600/5 border border-green-600/15">
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <span className="text-sm font-medium font-sans">{skill?.skill_name ?? ''}</span>
+                                      <span className="font-mono text-sm font-bold text-green-700">{skill?.current_score ?? 0}</span>
+                                    </div>
+                                    <div className="relative h-2 bg-secondary/60 rounded-full overflow-hidden">
+                                      <div
+                                        className="absolute inset-y-0 left-0 rounded-full bg-green-600/70 transition-all duration-700"
+                                        style={{ width: `${skill?.current_score ?? 0}%` }}
+                                      />
+                                    </div>
+                                    <div className="flex items-center justify-between mt-1">
+                                      <span className="text-[10px] text-muted-foreground">Required: {skill?.required_score ?? 0}</span>
+                                      {isReady ? (
+                                        <span className="text-[10px] text-green-600 font-medium flex items-center gap-0.5"><FiCheckCircle className="text-[9px]" /> Ready</span>
+                                      ) : (
+                                        <span className="text-[10px] text-muted-foreground">Gap: -{gap}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </CardContent>
+                          </Card>
+
+                          {/* Biggest Gaps */}
+                          <Card className="shadow-md hover:shadow-lg transition-shadow">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="font-serif text-base tracking-wide flex items-center gap-2">
+                                <FiAlertTriangle className="text-destructive" /> Largest Gaps
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2.5">
+                              {weakestSkills.map((skill, i) => {
+                                const gap = (skill?.required_score ?? 0) - (skill?.current_score ?? 0)
+                                const gapEntry = gaps.find(g => g?.skill_name === skill?.skill_name)
+                                const severity = gapEntry?.classification ?? (gap > 30 ? 'Critical' : gap > 15 ? 'Important' : 'Enhancement')
+                                return (
+                                  <div key={i} className={`p-2.5 rounded-lg border ${
+                                    severity.toLowerCase() === 'critical' ? 'bg-destructive/5 border-destructive/15'
+                                    : severity.toLowerCase() === 'important' ? 'bg-accent/5 border-accent/15'
+                                    : 'bg-secondary/30 border-secondary'
+                                  }`}>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-sm font-medium font-sans">{skill?.skill_name ?? ''}</span>
+                                        {classificationBadge(severity)}
+                                      </div>
+                                      <span className={`font-mono text-sm font-bold ${severity.toLowerCase() === 'critical' ? 'text-destructive' : 'text-accent-foreground'}`}>-{gap}</span>
+                                    </div>
+                                    <div className="relative h-2 bg-secondary/60 rounded-full overflow-hidden">
+                                      <div
+                                        className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${
+                                          severity.toLowerCase() === 'critical' ? 'bg-destructive/50' : 'bg-accent/50'
+                                        }`}
+                                        style={{ width: `${skill?.current_score ?? 0}%` }}
+                                      />
+                                      <div
+                                        className="absolute inset-y-0 w-0.5 border-l border-dashed border-foreground/30"
+                                        style={{ left: `${skill?.required_score ?? 0}%` }}
+                                      />
+                                    </div>
+                                    <div className="flex items-center justify-between mt-1">
+                                      <span className="text-[10px] text-muted-foreground">Current: {skill?.current_score ?? 0}</span>
+                                      <span className="text-[10px] text-muted-foreground">Required: {skill?.required_score ?? 0}</span>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </CardContent>
+                          </Card>
+                        </div>
                       </div>
+
+                      {/* Full Skill Breakdown Table */}
+                      <Card className="shadow-md hover:shadow-lg transition-shadow">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiBarChart2 className="text-primary" /> Skill-by-Skill Breakdown</CardTitle>
+                          <CardDescription className="font-sans">Detailed view of every assessed competency sorted by gap size</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2.5">
+                            {sortedByGap.map((skill, i) => {
+                              const current = skill?.current_score ?? 0
+                              const required = skill?.required_score ?? 0
+                              const gap = required - current
+                              const gapEntry = gaps.find(g => g?.skill_name === skill?.skill_name)
+                              const severity = gapEntry?.classification ?? (gap > 30 ? 'Critical' : gap > 15 ? 'Important' : 'Enhancement')
+                              const isReady = gap <= 0
+                              const pct = required > 0 ? Math.round((current / required) * 100) : 100
+
+                              return (
+                                <div key={i} className="flex items-center gap-4 p-3 rounded-lg bg-secondary/20 border border-secondary/50 hover:bg-secondary/30 transition-colors">
+                                  {/* Rank */}
+                                  <span className="text-xs font-mono text-muted-foreground w-5 text-center flex-shrink-0">{i + 1}</span>
+
+                                  {/* Skill name & badge */}
+                                  <div className="w-40 flex-shrink-0">
+                                    <p className="text-sm font-medium font-sans truncate">{skill?.skill_name ?? ''}</p>
+                                    {gapEntry?.category && <p className="text-[10px] text-muted-foreground">{gapEntry.category}</p>}
+                                  </div>
+
+                                  {/* Visual Progress Bar */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="relative h-5 bg-secondary/50 rounded-md overflow-hidden">
+                                      {/* Current level fill */}
+                                      <div
+                                        className={`absolute inset-y-0 left-0 rounded-md transition-all duration-700 flex items-center justify-end pr-1.5 ${
+                                          isReady ? 'bg-green-600/60' : gap > 30 ? 'bg-destructive/40' : gap > 15 ? 'bg-accent/40' : 'bg-primary/30'
+                                        }`}
+                                        style={{ width: `${current}%` }}
+                                      >
+                                        {current >= 20 && (
+                                          <span className="text-[10px] font-mono font-semibold text-foreground/80">{current}</span>
+                                        )}
+                                      </div>
+                                      {/* Required marker */}
+                                      {!isReady && (
+                                        <div
+                                          className="absolute inset-y-0 w-0.5 border-l-[1.5px] border-dashed border-foreground/40"
+                                          style={{ left: `${required}%` }}
+                                        />
+                                      )}
+                                    </div>
+                                    <div className="flex items-center justify-between mt-0.5">
+                                      <span className="text-[9px] text-muted-foreground font-mono">{current}/100 current</span>
+                                      <span className="text-[9px] text-muted-foreground font-mono">{required}/100 required</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Readiness % */}
+                                  <div className="w-14 text-center flex-shrink-0">
+                                    <span className={`font-mono text-sm font-bold ${pct >= 90 ? 'text-green-700' : pct >= 70 ? 'text-accent-foreground' : 'text-destructive'}`}>{Math.min(pct, 100)}%</span>
+                                    <p className="text-[9px] text-muted-foreground">ready</p>
+                                  </div>
+
+                                  {/* Gap */}
+                                  <div className="w-16 text-right flex-shrink-0">
+                                    {isReady ? (
+                                      <span className="text-xs text-green-600 font-medium flex items-center justify-end gap-1"><FiCheckCircle className="text-[10px]" /> Met</span>
+                                    ) : (
+                                      <>
+                                        <span className={`font-mono text-sm font-bold ${severity.toLowerCase() === 'critical' ? 'text-destructive' : severity.toLowerCase() === 'important' ? 'text-accent-foreground' : 'text-muted-foreground'}`}>-{gap}</span>
+                                        <div className="mt-0.5">{classificationBadge(severity)}</div>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Bottom Insight */}
+                      <Card className="shadow-md bg-primary/5 border-primary/15">
+                        <CardContent className="p-5">
+                          <div className="flex items-start gap-4">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <FiCompass className="text-primary text-lg" />
+                            </div>
+                            <div>
+                              <p className="font-serif font-semibold text-sm mb-1">Readiness Summary</p>
+                              <p className="text-sm text-muted-foreground leading-relaxed font-sans">
+                                {readiness >= 80
+                                  ? `With ${readiness}% readiness, you are well-prepared for the ${targetRole || displayOrchestrator.target_role} role. Your strongest skill is ${strongestSkills[0]?.skill_name ?? 'N/A'} at ${strongestSkills[0]?.current_score ?? 0}/100. Focus on the ${gapSummary.critical_count} critical gap${gapSummary.critical_count !== 1 ? 's' : ''} to reach full readiness.`
+                                  : readiness >= 60
+                                    ? `At ${readiness}% readiness, you have a solid foundation for the ${targetRole || displayOrchestrator.target_role} transition. Your average skill level is ${avgCurrent}/100 against a required ${avgRequired}/100. Prioritize closing the ${gapSummary.critical_count} critical and ${gapSummary.important_count} important gaps identified.`
+                                    : `Your current readiness of ${readiness}% indicates significant room for growth toward the ${targetRole || displayOrchestrator.target_role} role. The average gap of ${avgRequired - avgCurrent} points across ${radarSkills.length} skills suggests focusing on ${weakestSkills[0]?.skill_name ?? 'key areas'} first. Use the Learning Path section for a structured plan.`
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
                     </div>
-                  </div>
-                )}
+                  )
+                })()}
 
                 {/* SECTION: Gap Analysis */}
                 {activeEmployeeSection === 'gaps' && hasEmployeeData && displayOrchestrator && (() => {
