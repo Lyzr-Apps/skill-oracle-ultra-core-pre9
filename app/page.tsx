@@ -1758,201 +1758,759 @@ Based on this self-evaluation, generate accurate skill radar data (current_score
                 )}
 
                 {/* SECTION: Skill Heatmap */}
-                {activeManagerSection === 'wf-heatmap' && (
-                  <div className="space-y-6">
-                    {displayWorkforce ? (
+                {activeManagerSection === 'wf-heatmap' && (() => {
+                  if (!displayWorkforce) return (
+                    <Card className="shadow-md"><CardContent className="p-12 text-center"><div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4"><FiLayers className="text-primary text-2xl" /></div><h3 className="font-serif text-xl font-semibold mb-2">Skill Heatmap</h3><p className="text-muted-foreground text-sm font-sans max-w-md mx-auto">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
+                  )
+                  const departments = Array.isArray(displayWorkforce.skill_heatmap) ? displayWorkforce.skill_heatmap : []
+                  const allSkills: string[] = []
+                  departments.forEach(dept => {
+                    if (Array.isArray(dept?.skills)) dept.skills.forEach(s => { if (s?.skill_name && !allSkills.includes(s.skill_name)) allSkills.push(s.skill_name) })
+                  })
+                  // Compute org-wide averages per skill
+                  const skillAverages = allSkills.map(skillName => {
+                    let total = 0, count = 0
+                    departments.forEach(dept => {
+                      const s = Array.isArray(dept?.skills) ? dept.skills.find(sk => sk?.skill_name === skillName) : null
+                      if (s) { total += s.proficiency ?? 0; count++ }
+                    })
+                    return { skill_name: skillName, avg: count > 0 ? Math.round(total / count) : 0 }
+                  })
+                  const lowestSkill = [...skillAverages].sort((a, b) => a.avg - b.avg)[0]
+                  const highestSkill = [...skillAverages].sort((a, b) => b.avg - a.avg)[0]
+                  const overallAvg = skillAverages.length > 0 ? Math.round(skillAverages.reduce((s, sk) => s + sk.avg, 0) / skillAverages.length) : 0
+                  // Count critical cells
+                  let criticalCells = 0
+                  departments.forEach(dept => {
+                    if (Array.isArray(dept?.skills)) dept.skills.forEach(s => { if ((s?.gap_severity ?? '').toLowerCase() === 'critical') criticalCells++ })
+                  })
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Summary Cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Card className="shadow-md">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <FiLayers className="text-primary text-lg" />
+                              <Badge variant="secondary" className="text-[10px]">Overview</Badge>
+                            </div>
+                            <p className="font-mono text-2xl font-bold">{overallAvg}%</p>
+                            <p className="text-xs text-muted-foreground font-sans mt-0.5">Org Avg Proficiency</p>
+                          </CardContent>
+                        </Card>
+                        <Card className="shadow-md border-destructive/20 bg-destructive/5">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <FiAlertTriangle className="text-destructive text-lg" />
+                              <Badge variant="destructive" className="text-[10px]">Alert</Badge>
+                            </div>
+                            <p className="font-mono text-2xl font-bold text-destructive">{criticalCells}</p>
+                            <p className="text-xs text-muted-foreground font-sans mt-0.5">Critical Skill Cells</p>
+                          </CardContent>
+                        </Card>
+                        <Card className="shadow-md">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <FiTrendingUp className="text-green-600 text-lg" />
+                              <Badge variant="outline" className="text-[10px]">Strongest</Badge>
+                            </div>
+                            <p className="font-mono text-lg font-bold truncate">{highestSkill?.skill_name ?? '-'}</p>
+                            <p className="text-xs text-muted-foreground font-sans mt-0.5">Avg: {highestSkill?.avg ?? 0}% across depts</p>
+                          </CardContent>
+                        </Card>
+                        <Card className="shadow-md">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <FiAlertTriangle className="text-accent text-lg" />
+                              <Badge variant="outline" className="text-[10px]">Weakest</Badge>
+                            </div>
+                            <p className="font-mono text-lg font-bold truncate">{lowestSkill?.skill_name ?? '-'}</p>
+                            <p className="text-xs text-muted-foreground font-sans mt-0.5">Avg: {lowestSkill?.avg ?? 0}% across depts</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Visual Heatmap Grid */}
                       <Card className="shadow-md hover:shadow-lg transition-shadow">
                         <CardHeader className="pb-2">
                           <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiLayers className="text-primary" /> Org-Wide Skill Heatmap</CardTitle>
-                          <CardDescription className="font-sans">Department proficiency across key skills</CardDescription>
+                          <CardDescription className="font-sans">Department proficiency levels across critical skills. Larger, darker cells indicate stronger proficiency.</CardDescription>
                         </CardHeader>
-                        <CardContent className="overflow-x-auto">
-                          {(() => {
-                            const departments = Array.isArray(displayWorkforce.skill_heatmap) ? displayWorkforce.skill_heatmap : []
-                            const allSkills: string[] = []
-                            departments.forEach(dept => {
-                              if (Array.isArray(dept?.skills)) dept.skills.forEach(s => { if (s?.skill_name && !allSkills.includes(s.skill_name)) allSkills.push(s.skill_name) })
-                            })
-                            return (
-                              <>
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead className="font-serif text-sm">Department</TableHead>
-                                      {allSkills.map((s, i) => <TableHead key={i} className="text-center text-xs font-sans">{s}</TableHead>)}
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {departments.map((dept, i) => (
-                                      <TableRow key={i}>
-                                        <TableCell className="font-medium text-sm">{dept?.department ?? ''}</TableCell>
-                                        {allSkills.map((skillName, j) => {
-                                          const skill = Array.isArray(dept?.skills) ? dept.skills.find(s => s?.skill_name === skillName) : null
-                                          const prof = skill?.proficiency ?? 0
-                                          return <TableCell key={j} className="text-center"><span className={`inline-block px-2 py-1 rounded text-xs font-mono font-semibold ${heatmapCellColor(prof)}`}>{prof}%</span></TableCell>
-                                        })}
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                                <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-                                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-700/20 inline-block" /> 75+</span>
-                                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-yellow-600/20 inline-block" /> 55-74</span>
-                                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-orange-600/20 inline-block" /> 35-54</span>
-                                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-600/20 inline-block" /> Below 35</span>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {departments.map((dept, di) => (
+                              <div key={di} className="p-4 rounded-lg border border-border bg-card">
+                                <div className="flex items-center gap-2 mb-3">
+                                  <FiBriefcase className="text-primary text-sm" />
+                                  <h4 className="font-serif font-semibold text-sm">{dept?.department ?? ''}</h4>
+                                  {(() => {
+                                    const deptSkills = Array.isArray(dept?.skills) ? dept.skills : []
+                                    const deptAvg = deptSkills.length > 0 ? Math.round(deptSkills.reduce((s, sk) => s + (sk?.proficiency ?? 0), 0) / deptSkills.length) : 0
+                                    return <Badge variant="outline" className={`text-[10px] font-mono ml-auto ${deptAvg >= 65 ? 'text-green-700' : deptAvg >= 45 ? 'text-accent-foreground' : 'text-destructive'}`}>{deptAvg}% avg</Badge>
+                                  })()}
                                 </div>
-                              </>
-                            )
-                          })()}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                  {(Array.isArray(dept?.skills) ? dept.skills : []).map((skill, si) => {
+                                    const prof = skill?.proficiency ?? 0
+                                    const severity = (skill?.gap_severity ?? '').toLowerCase()
+                                    const bgClass = prof >= 75 ? 'bg-green-700/15 border-green-700/25' : prof >= 55 ? 'bg-yellow-600/15 border-yellow-600/25' : prof >= 35 ? 'bg-orange-600/15 border-orange-600/25' : 'bg-red-600/15 border-red-600/25'
+                                    const textClass = prof >= 75 ? 'text-green-800' : prof >= 55 ? 'text-yellow-800' : prof >= 35 ? 'text-orange-800' : 'text-red-800'
+                                    return (
+                                      <div key={si} className={`p-3 rounded-lg border ${bgClass} transition-all hover:shadow-sm`}>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                          <p className="text-xs font-medium font-sans truncate flex-1">{skill?.skill_name ?? ''}</p>
+                                          {severity === 'critical' && <span className="w-2 h-2 rounded-full bg-destructive flex-shrink-0 ml-1" />}
+                                        </div>
+                                        <p className={`font-mono text-2xl font-bold ${textClass}`}>{prof}%</p>
+                                        <div className="relative h-1.5 bg-secondary/60 rounded-full overflow-hidden mt-2">
+                                          <div className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${prof >= 75 ? 'bg-green-600' : prof >= 55 ? 'bg-yellow-600' : prof >= 35 ? 'bg-orange-600' : 'bg-red-600'}`} style={{ width: `${prof}%` }} />
+                                        </div>
+                                        {severity !== 'low' && severity && (
+                                          <p className={`text-[10px] mt-1.5 font-sans font-medium ${severity === 'critical' ? 'text-destructive' : severity === 'high' ? 'text-orange-700' : 'text-muted-foreground'}`}>
+                                            {severity === 'critical' ? 'Critical Gap' : severity === 'high' ? 'High Gap' : 'Moderate'}
+                                          </p>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Legend */}
+                          <div className="flex items-center gap-6 mt-5 pt-4 border-t border-border">
+                            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Proficiency Scale:</p>
+                            <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="w-3 h-3 rounded bg-green-700/20 inline-block border border-green-700/30" /> 75+ Strong</span>
+                            <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="w-3 h-3 rounded bg-yellow-600/20 inline-block border border-yellow-600/30" /> 55-74 Adequate</span>
+                            <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="w-3 h-3 rounded bg-orange-600/20 inline-block border border-orange-600/30" /> 35-54 Developing</span>
+                            <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="w-3 h-3 rounded bg-red-600/20 inline-block border border-red-600/30" /> Below 35 Critical</span>
+                          </div>
                         </CardContent>
                       </Card>
-                    ) : (
-                      <Card className="shadow-md"><CardContent className="p-12 text-center"><p className="text-muted-foreground text-sm font-sans">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
-                    )}
-                  </div>
-                )}
 
-                {/* SECTION: Shortage Index */}
-                {activeManagerSection === 'wf-shortage' && (
-                  <div className="space-y-6">
-                    {displayWorkforce ? (
+                      {/* Org-wide Skill Averages Bar Chart */}
                       <Card className="shadow-md hover:shadow-lg transition-shadow">
                         <CardHeader className="pb-2">
-                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiAlertTriangle className="text-primary" /> Critical Skill Shortage Index</CardTitle>
-                          <CardDescription className="font-sans">Skills with the greatest supply-demand mismatch</CardDescription>
+                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiBarChart2 className="text-primary" /> Skill Proficiency Comparison</CardTitle>
+                          <CardDescription className="font-sans">Organization-wide average proficiency for each skill area</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {[...skillAverages].sort((a, b) => a.avg - b.avg).map((skill, i) => {
+                              const avg = skill.avg
+                              const colorClass = avg >= 75 ? 'bg-green-600' : avg >= 55 ? 'bg-yellow-600' : avg >= 35 ? 'bg-orange-600' : 'bg-red-600'
+                              const textClass = avg >= 75 ? 'text-green-700' : avg >= 55 ? 'text-accent-foreground' : avg >= 35 ? 'text-orange-700' : 'text-destructive'
+                              return (
+                                <div key={i} className="flex items-center gap-4">
+                                  <span className="text-sm font-medium font-sans w-36 truncate flex-shrink-0">{skill.skill_name}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="relative h-7 bg-secondary/40 rounded-md overflow-hidden">
+                                      <div className={`absolute inset-y-0 left-0 rounded-md ${colorClass} opacity-60 flex items-center justify-end pr-2 transition-all duration-700`} style={{ width: `${avg}%` }}>
+                                        {avg >= 25 && <span className="text-[11px] font-mono font-semibold text-white">{avg}%</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <span className={`font-mono text-sm font-bold w-12 text-right flex-shrink-0 ${textClass}`}>{avg}%</span>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )
+                })()}
+
+                {/* SECTION: Shortage Index */}
+                {activeManagerSection === 'wf-shortage' && (() => {
+                  if (!displayWorkforce) return (
+                    <Card className="shadow-md"><CardContent className="p-12 text-center"><div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4"><FiAlertTriangle className="text-primary text-2xl" /></div><h3 className="font-serif text-xl font-semibold mb-2">Shortage Index</h3><p className="text-muted-foreground text-sm font-sans max-w-md mx-auto">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
+                  )
+                  const shortageItems = Array.isArray(displayWorkforce.shortage_index) ? displayWorkforce.shortage_index : []
+                  const totalGap = shortageItems.reduce((s, item) => s + ((item?.employees_needing_skill ?? 0) - (item?.employees_with_skill ?? 0)), 0)
+                  const criticalCount = shortageItems.filter(item => (item?.shortage_severity ?? '').toLowerCase() === 'critical').length
+                  const highCount = shortageItems.filter(item => (item?.shortage_severity ?? '').toLowerCase() === 'high').length
+                  const totalDepts = new Set(shortageItems.flatMap(item => Array.isArray(item?.affected_departments) ? item.affected_departments : [])).size
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Summary Banner */}
+                      <Card className="shadow-lg border-destructive/15 overflow-hidden">
+                        <div className="bg-gradient-to-r from-destructive/[0.06] via-destructive/[0.03] to-transparent">
+                          <CardContent className="p-6">
+                            <div className="flex items-center gap-6">
+                              <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
+                                <FiAlertTriangle className="text-destructive text-2xl" />
+                              </div>
+                              <div className="flex-1">
+                                <h3 className="font-serif text-lg font-bold tracking-wide mb-1">Skill Shortage Alert</h3>
+                                <p className="text-sm text-muted-foreground font-sans">
+                                  {totalGap} total employee skill gaps detected across {totalDepts} departments
+                                </p>
+                              </div>
+                              <div className="hidden md:flex items-center gap-4">
+                                <div className="text-center px-4 py-2 rounded-lg bg-card border border-border">
+                                  <p className="font-mono text-2xl font-bold text-destructive">{criticalCount}</p>
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Critical</p>
+                                </div>
+                                <div className="text-center px-4 py-2 rounded-lg bg-card border border-border">
+                                  <p className="font-mono text-2xl font-bold text-accent-foreground">{highCount}</p>
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">High</p>
+                                </div>
+                                <div className="text-center px-4 py-2 rounded-lg bg-card border border-border">
+                                  <p className="font-mono text-2xl font-bold">{shortageItems.length}</p>
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total Skills</p>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </div>
+                      </Card>
+
+                      {/* Detailed Shortage Cards */}
+                      <div className="space-y-4">
+                        {shortageItems.map((item, i) => {
+                          const have = item?.employees_with_skill ?? 0
+                          const need = item?.employees_needing_skill ?? 1
+                          const ratio = need > 0 ? Math.round((have / need) * 100) : 0
+                          const gap = need - have
+                          const severity = (item?.shortage_severity ?? '').toLowerCase()
+                          const borderColor = severity === 'critical' ? 'border-l-destructive' : severity === 'high' ? 'border-l-accent' : 'border-l-primary'
+                          const depts = Array.isArray(item?.affected_departments) ? item.affected_departments : []
+
+                          return (
+                            <Card key={i} className={`shadow-md hover:shadow-lg transition-shadow border-l-4 ${borderColor}`}>
+                              <CardContent className="p-5">
+                                <div className="flex items-start gap-4">
+                                  {/* Rank */}
+                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-mono font-bold ${
+                                    severity === 'critical' ? 'bg-destructive/10 text-destructive' : severity === 'high' ? 'bg-accent/10 text-accent-foreground' : 'bg-primary/10 text-primary'
+                                  }`}>
+                                    #{i + 1}
+                                  </div>
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <h4 className="font-serif font-semibold text-base">{item?.skill_name ?? ''}</h4>
+                                      {classificationBadge(item?.shortage_severity ?? '')}
+                                    </div>
+
+                                    {/* Supply/Demand Visual */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                                      <div className="p-3 rounded-lg bg-secondary/30 border border-secondary">
+                                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">Current Supply</p>
+                                        <p className="font-mono text-xl font-bold">{have}</p>
+                                        <p className="text-[10px] text-muted-foreground">employees with skill</p>
+                                      </div>
+                                      <div className="p-3 rounded-lg bg-secondary/30 border border-secondary">
+                                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">Required Demand</p>
+                                        <p className="font-mono text-xl font-bold">{need}</p>
+                                        <p className="text-[10px] text-muted-foreground">employees needing skill</p>
+                                      </div>
+                                      <div className={`p-3 rounded-lg border ${severity === 'critical' ? 'bg-destructive/5 border-destructive/20' : severity === 'high' ? 'bg-accent/5 border-accent/20' : 'bg-primary/5 border-primary/20'}`}>
+                                        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-1">Shortage Gap</p>
+                                        <p className={`font-mono text-xl font-bold ${severity === 'critical' ? 'text-destructive' : severity === 'high' ? 'text-accent-foreground' : 'text-primary'}`}>-{gap}</p>
+                                        <p className="text-[10px] text-muted-foreground">employees short</p>
+                                      </div>
+                                    </div>
+
+                                    {/* Fill Rate Bar */}
+                                    <div className="mb-3">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="text-xs text-muted-foreground font-sans">Fill Rate</span>
+                                        <span className={`font-mono text-xs font-bold ${ratio >= 70 ? 'text-green-700' : ratio >= 40 ? 'text-accent-foreground' : 'text-destructive'}`}>{ratio}%</span>
+                                      </div>
+                                      <div className="relative h-3 bg-secondary/50 rounded-full overflow-hidden">
+                                        <div
+                                          className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${ratio >= 70 ? 'bg-green-600/60' : ratio >= 40 ? 'bg-accent/60' : 'bg-destructive/60'}`}
+                                          style={{ width: `${ratio}%` }}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {/* Affected Departments */}
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mr-1">Affected:</span>
+                                      {depts.map((d, j) => (
+                                        <Badge key={j} variant="outline" className="text-[10px] font-sans">{d}</Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* SECTION: Readiness Funnel */}
+                {activeManagerSection === 'wf-funnel' && (() => {
+                  if (!displayWorkforce) return (
+                    <Card className="shadow-md"><CardContent className="p-12 text-center"><div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4"><FiBarChart2 className="text-primary text-2xl" /></div><h3 className="font-serif text-xl font-semibold mb-2">Readiness Funnel</h3><p className="text-muted-foreground text-sm font-sans max-w-md mx-auto">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
+                  )
+                  const funnelData = Array.isArray(displayWorkforce.readiness_funnel) ? displayWorkforce.readiness_funnel : []
+                  const totalReady = funnelData.reduce((s, r) => s + (r?.ready ?? 0), 0)
+                  const totalNearlyReady = funnelData.reduce((s, r) => s + (r?.nearly_ready ?? 0), 0)
+                  const totalDeveloping = funnelData.reduce((s, r) => s + (r?.developing ?? 0), 0)
+                  const totalNotReady = funnelData.reduce((s, r) => s + (r?.not_ready ?? 0), 0)
+                  const grandTotal = totalReady + totalNearlyReady + totalDeveloping + totalNotReady
+                  const readyPct = grandTotal > 0 ? Math.round((totalReady / grandTotal) * 100) : 0
+                  const pipelinePct = grandTotal > 0 ? Math.round(((totalReady + totalNearlyReady) / grandTotal) * 100) : 0
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Summary Stats */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Card className="shadow-md bg-green-700/5 border-green-700/15">
+                          <CardContent className="p-4 text-center">
+                            <FiCheckCircle className="mx-auto text-green-600 text-lg mb-1.5" />
+                            <p className="font-mono text-3xl font-bold text-green-700">{totalReady}</p>
+                            <p className="text-xs text-muted-foreground font-sans mt-0.5">Ready Now</p>
+                            <p className="text-[10px] text-green-700 font-mono mt-1">{readyPct}% of total</p>
+                          </CardContent>
+                        </Card>
+                        <Card className="shadow-md">
+                          <CardContent className="p-4 text-center">
+                            <FiTarget className="mx-auto text-accent text-lg mb-1.5" />
+                            <p className="font-mono text-3xl font-bold">{totalNearlyReady}</p>
+                            <p className="text-xs text-muted-foreground font-sans mt-0.5">Nearly Ready</p>
+                            <p className="text-[10px] text-muted-foreground font-mono mt-1">Pipeline talent</p>
+                          </CardContent>
+                        </Card>
+                        <Card className="shadow-md">
+                          <CardContent className="p-4 text-center">
+                            <FiActivity className="mx-auto text-primary text-lg mb-1.5" />
+                            <p className="font-mono text-3xl font-bold">{totalDeveloping}</p>
+                            <p className="text-xs text-muted-foreground font-sans mt-0.5">Developing</p>
+                            <p className="text-[10px] text-muted-foreground font-mono mt-1">In progress</p>
+                          </CardContent>
+                        </Card>
+                        <Card className="shadow-md border-destructive/15 bg-destructive/5">
+                          <CardContent className="p-4 text-center">
+                            <FiAlertTriangle className="mx-auto text-destructive text-lg mb-1.5" />
+                            <p className="font-mono text-3xl font-bold text-destructive">{totalNotReady}</p>
+                            <p className="text-xs text-muted-foreground font-sans mt-0.5">Not Ready</p>
+                            <p className="text-[10px] text-destructive font-mono mt-1">Needs intervention</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Pipeline Health */}
+                      <Card className="shadow-md bg-primary/5 border-primary/15">
+                        <CardContent className="p-5">
+                          <div className="flex items-center gap-4 mb-3">
+                            <FiTrendingUp className="text-primary text-lg" />
+                            <div className="flex-1">
+                              <p className="font-serif font-semibold text-sm">Talent Pipeline Health</p>
+                              <p className="text-xs text-muted-foreground">Ready + Nearly Ready as percentage of total assessed employees</p>
+                            </div>
+                            <span className={`font-mono text-2xl font-bold ${pipelinePct >= 40 ? 'text-green-700' : pipelinePct >= 25 ? 'text-accent-foreground' : 'text-destructive'}`}>{pipelinePct}%</span>
+                          </div>
+                          <div className="relative h-4 bg-secondary/50 rounded-full overflow-hidden">
+                            <div className="absolute inset-y-0 left-0 rounded-full bg-green-600/70 transition-all duration-700" style={{ width: `${readyPct}%` }} />
+                            <div className="absolute inset-y-0 rounded-full bg-accent/50 transition-all duration-700" style={{ left: `${readyPct}%`, width: `${pipelinePct - readyPct}%` }} />
+                          </div>
+                          <div className="flex items-center gap-4 mt-2 text-[10px] text-muted-foreground">
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-600/70" /> Ready ({readyPct}%)</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-accent/50" /> Nearly Ready ({pipelinePct - readyPct}%)</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-secondary/50" /> Others ({100 - pipelinePct}%)</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Stacked Bar Chart */}
+                      <Card className="shadow-md hover:shadow-lg transition-shadow">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiBarChart2 className="text-primary" /> Readiness Distribution by Role</CardTitle>
+                          <CardDescription className="font-sans">Stacked breakdown showing readiness stages per target role</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <ResponsiveContainer width="100%" height={360}>
+                            <BarChart data={funnelData} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 15%, 80%)" />
+                              <XAxis type="number" tick={{ fontSize: 11 }} />
+                              <YAxis type="category" dataKey="role" width={110} tick={{ fontSize: 11 }} />
+                              <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, border: '1px solid hsl(35, 15%, 80%)' }} />
+                              <Legend wrapperStyle={{ fontSize: 12 }} />
+                              <Bar dataKey="ready" stackId="a" fill="hsl(140, 50%, 35%)" name="Ready" radius={[0, 0, 0, 0]} />
+                              <Bar dataKey="nearly_ready" stackId="a" fill={CHART_COLORS.c2} name="Nearly Ready" />
+                              <Bar dataKey="developing" stackId="a" fill={CHART_COLORS.c4} name="Developing" />
+                              <Bar dataKey="not_ready" stackId="a" fill={CHART_COLORS.c5} name="Not Ready" radius={[0, 4, 4, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+
+                      {/* Per-Role Breakdown Cards */}
+                      <Card className="shadow-md hover:shadow-lg transition-shadow">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiUsers className="text-primary" /> Role-by-Role Readiness</CardTitle>
+                          <CardDescription className="font-sans">Detailed readiness breakdown for each target role</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                          {(Array.isArray(displayWorkforce.shortage_index) ? displayWorkforce.shortage_index : []).map((item, i) => {
-                            const total = (item?.employees_needing_skill ?? 1)
-                            const ratio = total > 0 ? Math.round(((item?.employees_with_skill ?? 0) / total) * 100) : 0
+                          {funnelData.map((role, i) => {
+                            const roleTotal = (role?.ready ?? 0) + (role?.nearly_ready ?? 0) + (role?.developing ?? 0) + (role?.not_ready ?? 0)
+                            const roleReadyPct = roleTotal > 0 ? Math.round(((role?.ready ?? 0) / roleTotal) * 100) : 0
+                            const rolePipelinePct = roleTotal > 0 ? Math.round((((role?.ready ?? 0) + (role?.nearly_ready ?? 0)) / roleTotal) * 100) : 0
                             return (
-                              <div key={i} className={`p-4 rounded-lg border ${severityColor(item?.shortage_severity ?? '')}`}>
-                                <div className="flex items-center justify-between mb-2">
-                                  <div>
-                                    <p className="font-medium text-sm">{item?.skill_name ?? ''}</p>
-                                    <p className="text-xs text-muted-foreground mt-0.5">{Array.isArray(item?.affected_departments) ? item.affected_departments.join(', ') : ''}</p>
+                              <div key={i} className="p-4 rounded-lg border border-border bg-card hover:bg-secondary/20 transition-colors">
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                    <FiBriefcase className="text-primary text-sm" />
+                                    <h4 className="font-serif font-semibold text-sm">{role?.role ?? ''}</h4>
                                   </div>
-                                  {classificationBadge(item?.shortage_severity ?? '')}
+                                  <div className="flex items-center gap-3">
+                                    <Badge variant="outline" className="text-[10px] font-mono">{roleTotal} total</Badge>
+                                    <Badge variant={roleReadyPct >= 15 ? 'default' : 'destructive'} className="text-[10px] font-mono">{roleReadyPct}% ready</Badge>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-4 mt-2">
-                                  <div className="flex-1"><Progress value={ratio} className="h-2" /></div>
-                                  <span className="font-mono text-xs whitespace-nowrap">{item?.employees_with_skill ?? 0} / {item?.employees_needing_skill ?? 0}</span>
+                                {/* Segmented bar */}
+                                <div className="relative h-6 bg-secondary/40 rounded-md overflow-hidden flex">
+                                  {roleTotal > 0 && (
+                                    <>
+                                      <div className="h-full flex items-center justify-center text-[10px] font-mono font-semibold text-white" style={{ width: `${((role?.ready ?? 0) / roleTotal) * 100}%`, backgroundColor: 'hsl(140, 50%, 35%)' }}>
+                                        {(role?.ready ?? 0) > 0 && role.ready}
+                                      </div>
+                                      <div className="h-full flex items-center justify-center text-[10px] font-mono font-semibold text-white" style={{ width: `${((role?.nearly_ready ?? 0) / roleTotal) * 100}%`, backgroundColor: CHART_COLORS.c2 }}>
+                                        {(role?.nearly_ready ?? 0) > 0 && role.nearly_ready}
+                                      </div>
+                                      <div className="h-full flex items-center justify-center text-[10px] font-mono font-semibold text-white" style={{ width: `${((role?.developing ?? 0) / roleTotal) * 100}%`, backgroundColor: CHART_COLORS.c4 }}>
+                                        {(role?.developing ?? 0) > 0 && role.developing}
+                                      </div>
+                                      <div className="h-full flex items-center justify-center text-[10px] font-mono font-semibold text-white" style={{ width: `${((role?.not_ready ?? 0) / roleTotal) * 100}%`, backgroundColor: CHART_COLORS.c5 }}>
+                                        {(role?.not_ready ?? 0) > 0 && role.not_ready}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                                <div className="flex items-center justify-between mt-1.5">
+                                  <span className="text-[10px] text-muted-foreground font-sans">Pipeline: {rolePipelinePct}%</span>
+                                  <span className="text-[10px] text-muted-foreground font-sans">{role?.not_ready ?? 0} need intervention</span>
                                 </div>
                               </div>
                             )
                           })}
                         </CardContent>
                       </Card>
-                    ) : (
-                      <Card className="shadow-md"><CardContent className="p-12 text-center"><p className="text-muted-foreground text-sm font-sans">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
-                    )}
-                  </div>
-                )}
-
-                {/* SECTION: Readiness Funnel */}
-                {activeManagerSection === 'wf-funnel' && (
-                  <div className="space-y-6">
-                    {displayWorkforce ? (
-                      <Card className="shadow-md hover:shadow-lg transition-shadow">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiBarChart2 className="text-primary" /> Readiness Funnel by Role</CardTitle>
-                          <CardDescription className="font-sans">Employee readiness distribution across target roles</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <ResponsiveContainer width="100%" height={360}>
-                            <BarChart data={Array.isArray(displayWorkforce.readiness_funnel) ? displayWorkforce.readiness_funnel : []} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 15%, 80%)" />
-                              <XAxis type="number" tick={{ fontSize: 11 }} />
-                              <YAxis type="category" dataKey="role" width={110} tick={{ fontSize: 11 }} />
-                              <Tooltip />
-                              <Legend />
-                              <Bar dataKey="ready" stackId="a" fill="hsl(140, 50%, 35%)" name="Ready" />
-                              <Bar dataKey="nearly_ready" stackId="a" fill={CHART_COLORS.c2} name="Nearly Ready" />
-                              <Bar dataKey="developing" stackId="a" fill={CHART_COLORS.c4} name="Developing" />
-                              <Bar dataKey="not_ready" stackId="a" fill={CHART_COLORS.c5} name="Not Ready" />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <Card className="shadow-md"><CardContent className="p-12 text-center"><p className="text-muted-foreground text-sm font-sans">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )
+                })()}
 
                 {/* SECTION: Effectiveness Analytics */}
-                {activeManagerSection === 'wf-effectiveness' && (
-                  <div className="space-y-6">
-                    {displayWorkforce ? (
-                      <Card className="shadow-md hover:shadow-lg transition-shadow">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiActivity className="text-primary" /> Learning Effectiveness Analytics</CardTitle>
-                          <CardDescription className="font-sans">Impact metrics for L&D programs</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {activeManagerSection === 'wf-effectiveness' && (() => {
+                  if (!displayWorkforce) return (
+                    <Card className="shadow-md"><CardContent className="p-12 text-center"><div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4"><FiActivity className="text-primary text-2xl" /></div><h3 className="font-serif text-xl font-semibold mb-2">Effectiveness Analytics</h3><p className="text-muted-foreground text-sm font-sans max-w-md mx-auto">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
+                  )
+                  const ea = displayWorkforce.effectiveness_analytics
+                  const adoptionRate = ea?.adoption_rate ?? 0
+                  const completionRate = ea?.completion_rate ?? 0
+                  const avgSkillLift = ea?.avg_skill_lift ?? 0
+                  const perfCorr = ea?.performance_correlation ?? 0
+                  const retCorr = ea?.retention_correlation ?? 0
+                  const promoAccel = ea?.promotion_acceleration ?? 0
+                  // Engagement Score: composite of adoption + completion
+                  const engagementScore = Math.round((adoptionRate + completionRate) / 2)
+                  // Impact Score: composite of skill lift + correlations
+                  const impactScore = Math.round((avgSkillLift + (perfCorr * 100) + (retCorr * 100) + promoAccel) / 4)
+                  const roiData = Array.isArray(displayWorkforce.roi_by_department) ? displayWorkforce.roi_by_department : []
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Hero Metrics Banner */}
+                      <Card className="shadow-lg border-primary/15 overflow-hidden">
+                        <div className="bg-gradient-to-r from-primary/[0.06] via-primary/[0.03] to-transparent">
+                          <CardContent className="p-6">
+                            <div className="flex items-center gap-6">
+                              <div className="flex-shrink-0">
+                                <div className="flex flex-col items-center">
+                                  <svg width="120" height="120" viewBox="0 0 120 120">
+                                    <circle cx="60" cy="60" r="48" fill="none" stroke="hsl(35, 15%, 85%)" strokeWidth="10" />
+                                    <circle cx="60" cy="60" r="48" fill="none" className={engagementScore >= 70 ? 'stroke-green-600' : engagementScore >= 50 ? 'stroke-accent' : 'stroke-destructive'} strokeWidth="10" strokeDasharray={2 * Math.PI * 48} strokeDashoffset={2 * Math.PI * 48 * (1 - engagementScore / 100)} strokeLinecap="round" transform="rotate(-90 60 60)" />
+                                    <text x="60" y="54" textAnchor="middle" className="fill-foreground font-mono text-2xl font-bold">{engagementScore}%</text>
+                                    <text x="60" y="72" textAnchor="middle" className="fill-muted-foreground text-[10px]">Engagement</text>
+                                  </svg>
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <h3 className="font-serif text-lg font-bold tracking-wide mb-1">Learning Program Effectiveness</h3>
+                                <p className="text-sm text-muted-foreground font-sans mb-4">Comprehensive impact analysis of L&D initiatives across the organization</p>
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div className="p-2.5 rounded-lg bg-card border border-border text-center">
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Impact Score</p>
+                                    <p className={`font-mono text-lg font-bold ${impactScore >= 40 ? 'text-green-700' : 'text-accent-foreground'}`}>{impactScore}</p>
+                                  </div>
+                                  <div className="p-2.5 rounded-lg bg-card border border-border text-center">
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Skill Lift</p>
+                                    <p className="font-mono text-lg font-bold text-green-700">+{avgSkillLift}%</p>
+                                  </div>
+                                  <div className="p-2.5 rounded-lg bg-card border border-border text-center">
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Promo Accel.</p>
+                                    <p className="font-mono text-lg font-bold text-primary">{promoAccel}%</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </div>
+                      </Card>
+
+                      {/* Detailed Metrics Cards */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Engagement Metrics */}
+                        <Card className="shadow-md hover:shadow-lg transition-shadow">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="font-serif text-base tracking-wide flex items-center gap-2"><FiUsers className="text-primary" /> Engagement Metrics</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            {/* Adoption Rate */}
+                            <div className="p-3 rounded-lg bg-secondary/30 border border-secondary">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <FiUsers className="text-primary text-sm" />
+                                  <span className="text-sm font-medium font-sans">Adoption Rate</span>
+                                </div>
+                                <span className={`font-mono text-lg font-bold ${adoptionRate >= 70 ? 'text-green-700' : adoptionRate >= 50 ? 'text-accent-foreground' : 'text-destructive'}`}>{adoptionRate}%</span>
+                              </div>
+                              <div className="relative h-2.5 bg-secondary/60 rounded-full overflow-hidden">
+                                <div className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${adoptionRate >= 70 ? 'bg-green-600/70' : adoptionRate >= 50 ? 'bg-accent/70' : 'bg-destructive/70'}`} style={{ width: `${adoptionRate}%` }} />
+                              </div>
+                              <p className="text-[10px] text-muted-foreground mt-1.5">Percentage of eligible employees enrolled in programs</p>
+                            </div>
+
+                            {/* Completion Rate */}
+                            <div className="p-3 rounded-lg bg-secondary/30 border border-secondary">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <FiCheckCircle className="text-primary text-sm" />
+                                  <span className="text-sm font-medium font-sans">Completion Rate</span>
+                                </div>
+                                <span className={`font-mono text-lg font-bold ${completionRate >= 70 ? 'text-green-700' : completionRate >= 50 ? 'text-accent-foreground' : 'text-destructive'}`}>{completionRate}%</span>
+                              </div>
+                              <div className="relative h-2.5 bg-secondary/60 rounded-full overflow-hidden">
+                                <div className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${completionRate >= 70 ? 'bg-green-600/70' : completionRate >= 50 ? 'bg-accent/70' : 'bg-destructive/70'}`} style={{ width: `${completionRate}%` }} />
+                              </div>
+                              <p className="text-[10px] text-muted-foreground mt-1.5">Percentage of enrolled employees completing their programs</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Impact Metrics */}
+                        <Card className="shadow-md hover:shadow-lg transition-shadow">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="font-serif text-base tracking-wide flex items-center gap-2"><FiTrendingUp className="text-primary" /> Business Impact</CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
                             {[
-                              { label: 'Adoption Rate', value: `${displayWorkforce.effectiveness_analytics?.adoption_rate ?? 0}%`, icon: FiUsers },
-                              { label: 'Completion Rate', value: `${displayWorkforce.effectiveness_analytics?.completion_rate ?? 0}%`, icon: FiCheckCircle },
-                              { label: 'Avg Skill Lift', value: `+${displayWorkforce.effectiveness_analytics?.avg_skill_lift ?? 0}%`, icon: FiTrendingUp },
-                              { label: 'Performance Corr.', value: (displayWorkforce.effectiveness_analytics?.performance_correlation ?? 0).toFixed(2), icon: FiActivity },
-                              { label: 'Retention Corr.', value: (displayWorkforce.effectiveness_analytics?.retention_correlation ?? 0).toFixed(2), icon: FiAward },
-                              { label: 'Promotion Accel.', value: `${displayWorkforce.effectiveness_analytics?.promotion_acceleration ?? 0}%`, icon: FiZap },
-                            ].map((m, i) => (
-                              <div key={i} className="p-4 rounded-lg bg-secondary/50 border border-secondary text-center">
-                                <m.icon className="mx-auto text-primary text-lg mb-1.5" />
-                                <p className="font-mono text-xl font-bold">{m.value}</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">{m.label}</p>
+                              { label: 'Avg Skill Lift', value: `+${avgSkillLift}%`, description: 'Average improvement in skill proficiency post-training', icon: FiTrendingUp, color: avgSkillLift >= 20 ? 'text-green-700' : 'text-accent-foreground' },
+                              { label: 'Performance Correlation', value: perfCorr.toFixed(2), description: 'Correlation between L&D completion and performance ratings', icon: FiActivity, color: perfCorr >= 0.6 ? 'text-green-700' : 'text-accent-foreground' },
+                              { label: 'Retention Correlation', value: retCorr.toFixed(2), description: 'Correlation between L&D engagement and employee retention', icon: FiAward, color: retCorr >= 0.6 ? 'text-green-700' : 'text-accent-foreground' },
+                            ].map((metric, idx) => (
+                              <div key={idx} className="p-3 rounded-lg bg-secondary/30 border border-secondary">
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="flex items-center gap-2">
+                                    <metric.icon className="text-primary text-sm" />
+                                    <span className="text-sm font-medium font-sans">{metric.label}</span>
+                                  </div>
+                                  <span className={`font-mono text-lg font-bold ${metric.color}`}>{metric.value}</span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">{metric.description}</p>
                               </div>
                             ))}
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* ROI by Department */}
+                      {roiData.length > 0 && (
+                        <Card className="shadow-md hover:shadow-lg transition-shadow">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiBarChart2 className="text-primary" /> ROI by Department</CardTitle>
+                            <CardDescription className="font-sans">Investment vs returns comparison across departments</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              {roiData.map((dept, i) => {
+                                const inv = dept?.investment ?? 0
+                                const ret = dept?.returns ?? 0
+                                const roi = dept?.roi_percentage ?? 0
+                                const maxVal = Math.max(...roiData.map(d => d?.returns ?? 0), 1)
+                                return (
+                                  <div key={i} className="p-4 rounded-lg border border-border bg-card hover:bg-secondary/20 transition-colors">
+                                    <div className="flex items-center justify-between mb-3">
+                                      <div className="flex items-center gap-2">
+                                        <FiBriefcase className="text-primary text-sm" />
+                                        <h4 className="font-serif font-semibold text-sm">{dept?.department ?? ''}</h4>
+                                      </div>
+                                      <Badge variant={roi >= 200 ? 'default' : 'outline'} className="text-xs font-mono">{roi}% ROI</Badge>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 mb-3">
+                                      <div className="p-2.5 rounded-md bg-secondary/30">
+                                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Investment</p>
+                                        <p className="font-mono text-base font-bold">{formatCurrency(inv)}</p>
+                                      </div>
+                                      <div className="p-2.5 rounded-md bg-green-700/5 border border-green-700/10">
+                                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">Returns</p>
+                                        <p className="font-mono text-base font-bold text-green-700">{formatCurrency(ret)}</p>
+                                      </div>
+                                    </div>
+                                    <div className="relative h-2 bg-secondary/50 rounded-full overflow-hidden">
+                                      <div className="absolute inset-y-0 left-0 rounded-full bg-primary/50 transition-all duration-700" style={{ width: `${(inv / maxVal) * 100}%` }} />
+                                    </div>
+                                    <div className="relative h-2 bg-secondary/50 rounded-full overflow-hidden mt-1">
+                                      <div className="absolute inset-y-0 left-0 rounded-full bg-green-600/60 transition-all duration-700" style={{ width: `${(ret / maxVal) * 100}%` }} />
+                                    </div>
+                                    <div className="flex items-center gap-4 mt-1.5 text-[10px] text-muted-foreground">
+                                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary/50" /> Investment</span>
+                                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-600/60" /> Returns</span>
+                                      <span className="ml-auto font-mono font-medium">Net: {formatCurrency(ret - inv)}</span>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  )
+                })()}
+
+                {/* SECTION: Underperforming Programs */}
+                {activeManagerSection === 'wf-underperforming' && (() => {
+                  if (!displayWorkforce) return (
+                    <Card className="shadow-md"><CardContent className="p-12 text-center"><div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4"><FiAlertTriangle className="text-primary text-2xl" /></div><h3 className="font-serif text-xl font-semibold mb-2">Underperforming Programs</h3><p className="text-muted-foreground text-sm font-sans max-w-md mx-auto">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
+                  )
+                  const programs = Array.isArray(displayWorkforce.underperforming_programs) ? displayWorkforce.underperforming_programs : []
+                  const totalWaste = programs.reduce((s, p) => s + (p?.cost ?? 0), 0)
+                  const avgCompletion = programs.length > 0 ? Math.round(programs.reduce((s, p) => s + (p?.completion_rate ?? 0), 0) / programs.length) : 0
+                  const avgLift = programs.length > 0 ? Math.round(programs.reduce((s, p) => s + (p?.skill_lift ?? 0), 0) / programs.length) : 0
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Alert Banner */}
+                      <Card className="shadow-lg border-accent/20 overflow-hidden">
+                        <div className="bg-gradient-to-r from-accent/[0.08] via-accent/[0.03] to-transparent">
+                          <CardContent className="p-6">
+                            <div className="flex items-center gap-6">
+                              <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+                                <FiAlertTriangle className="text-accent text-2xl" />
+                              </div>
+                              <div className="flex-1">
+                                <h3 className="font-serif text-lg font-bold tracking-wide mb-1">Programs Requiring Attention</h3>
+                                <p className="text-sm text-muted-foreground font-sans">
+                                  {programs.length} programs flagged for underperformance with {formatCurrency(totalWaste)} total budget at risk
+                                </p>
+                              </div>
+                              <div className="hidden md:flex items-center gap-4">
+                                <div className="text-center px-4 py-2 rounded-lg bg-card border border-border">
+                                  <p className="font-mono text-xl font-bold text-destructive">{avgCompletion}%</p>
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Avg Completion</p>
+                                </div>
+                                <div className="text-center px-4 py-2 rounded-lg bg-card border border-border">
+                                  <p className="font-mono text-xl font-bold text-accent-foreground">+{avgLift}%</p>
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Avg Skill Lift</p>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </div>
+                      </Card>
+
+                      {/* Program Cards */}
+                      <div className="space-y-4">
+                        {programs.map((p, i) => {
+                          const completion = p?.completion_rate ?? 0
+                          const skillLift = p?.skill_lift ?? 0
+                          const cost = p?.cost ?? 0
+                          // Effectiveness score: lower is worse
+                          const effectiveness = completion > 0 ? Math.round((skillLift / completion) * 100) : 0
+
+                          return (
+                            <Card key={i} className="shadow-md hover:shadow-lg transition-shadow border-l-4 border-l-accent">
+                              <CardContent className="p-5">
+                                <div className="flex items-start gap-4">
+                                  {/* Status Indicator */}
+                                  <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <FiAlertTriangle className="text-accent text-lg" />
+                                  </div>
+
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-3">
+                                      <h4 className="font-serif font-semibold text-base">{p?.program_name ?? ''}</h4>
+                                      <Badge variant="destructive" className="text-[10px]">Underperforming</Badge>
+                                    </div>
+
+                                    {/* Metrics Row */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                      <div className="p-2.5 rounded-lg bg-secondary/30 border border-secondary">
+                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Completion</p>
+                                        <div className="flex items-end gap-1">
+                                          <span className={`font-mono text-lg font-bold ${completion >= 50 ? 'text-accent-foreground' : 'text-destructive'}`}>{completion}%</span>
+                                        </div>
+                                        <div className="relative h-1.5 bg-secondary/60 rounded-full overflow-hidden mt-1.5">
+                                          <div className={`absolute inset-y-0 left-0 rounded-full ${completion >= 50 ? 'bg-accent/60' : 'bg-destructive/60'}`} style={{ width: `${completion}%` }} />
+                                        </div>
+                                      </div>
+                                      <div className="p-2.5 rounded-lg bg-secondary/30 border border-secondary">
+                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Skill Lift</p>
+                                        <span className={`font-mono text-lg font-bold ${skillLift >= 15 ? 'text-green-700' : skillLift >= 10 ? 'text-accent-foreground' : 'text-destructive'}`}>+{skillLift}%</span>
+                                        <div className="relative h-1.5 bg-secondary/60 rounded-full overflow-hidden mt-1.5">
+                                          <div className={`absolute inset-y-0 left-0 rounded-full ${skillLift >= 15 ? 'bg-green-600/60' : 'bg-destructive/60'}`} style={{ width: `${Math.min(skillLift * 3, 100)}%` }} />
+                                        </div>
+                                      </div>
+                                      <div className="p-2.5 rounded-lg bg-secondary/30 border border-secondary">
+                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Budget</p>
+                                        <span className="font-mono text-lg font-bold">{formatCurrency(cost)}</span>
+                                      </div>
+                                      <div className="p-2.5 rounded-lg bg-secondary/30 border border-secondary">
+                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Effectiveness</p>
+                                        <span className={`font-mono text-lg font-bold ${effectiveness >= 30 ? 'text-accent-foreground' : 'text-destructive'}`}>{effectiveness}</span>
+                                        <span className="text-[10px] text-muted-foreground ml-0.5">score</span>
+                                      </div>
+                                    </div>
+
+                                    {/* Recommendation */}
+                                    <div className="p-3 rounded-lg bg-primary/5 border border-primary/15">
+                                      <div className="flex items-start gap-2">
+                                        <FiCompass className="text-primary text-sm mt-0.5 flex-shrink-0" />
+                                        <div>
+                                          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-0.5">Recommendation</p>
+                                          <p className="text-sm text-muted-foreground font-sans leading-relaxed">{p?.recommendation ?? ''}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )
+                        })}
+                      </div>
+
+                      {/* Bottom Insight */}
+                      <Card className="shadow-md bg-primary/5 border-primary/15">
+                        <CardContent className="p-5">
+                          <div className="flex items-start gap-4">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <FiCompass className="text-primary text-lg" />
+                            </div>
+                            <div>
+                              <p className="font-serif font-semibold text-sm mb-1">Action Required</p>
+                              <p className="text-sm text-muted-foreground leading-relaxed font-sans">
+                                These {programs.length} programs represent {formatCurrency(totalWaste)} in L&D investment with below-threshold returns. Average completion of {avgCompletion}% and skill lift of +{avgLift}% suggest content relevance or delivery format issues. Consider replacing or restructuring these programs based on the recommendations above.
+                              </p>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
-                    ) : (
-                      <Card className="shadow-md"><CardContent className="p-12 text-center"><p className="text-muted-foreground text-sm font-sans">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
-                    )}
-                  </div>
-                )}
-
-                {/* SECTION: Underperforming Programs */}
-                {activeManagerSection === 'wf-underperforming' && (
-                  <div className="space-y-6">
-                    {displayWorkforce ? (
-                      <Card className="shadow-md hover:shadow-lg transition-shadow">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiAlertTriangle className="text-accent" /> Underperforming Programs</CardTitle>
-                          <CardDescription className="font-sans">Programs flagged for review or replacement</CardDescription>
-                        </CardHeader>
-                        <CardContent className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="text-xs">Program Name</TableHead>
-                                <TableHead className="text-xs text-center">Completion %</TableHead>
-                                <TableHead className="text-xs text-center">Skill Lift</TableHead>
-                                <TableHead className="text-xs text-right">Cost</TableHead>
-                                <TableHead className="text-xs">Recommendation</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {(Array.isArray(displayWorkforce.underperforming_programs) ? displayWorkforce.underperforming_programs : []).map((p, i) => (
-                                <TableRow key={i}>
-                                  <TableCell className="text-sm font-medium">{p?.program_name ?? ''}</TableCell>
-                                  <TableCell className="text-center"><span className="font-mono text-sm">{p?.completion_rate ?? 0}%</span></TableCell>
-                                  <TableCell className="text-center"><span className="font-mono text-sm">+{p?.skill_lift ?? 0}%</span></TableCell>
-                                  <TableCell className="text-right font-mono text-sm">{formatCurrency(p?.cost ?? 0)}</TableCell>
-                                  <TableCell className="text-xs text-muted-foreground max-w-[200px]">{p?.recommendation ?? ''}</TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </CardContent>
-                      </Card>
-                    ) : (
-                      <Card className="shadow-md"><CardContent className="p-12 text-center"><p className="text-muted-foreground text-sm font-sans">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )
+                })()}
 
                 {/* SECTION: Predictive Forecast */}
                 {activeManagerSection === 'pred-forecast' && (
