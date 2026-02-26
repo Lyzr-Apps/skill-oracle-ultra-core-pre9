@@ -50,6 +50,30 @@ const ROLES = [
   'Project Manager', 'VP of Engineering',
 ]
 
+// ─── SELF-EVALUATION SKILL AREAS ───
+const SKILL_AREAS = [
+  { id: 'technical', label: 'Technical / Domain Expertise', description: 'Core technical skills, tools, and domain knowledge for your role' },
+  { id: 'leadership', label: 'Leadership & People Management', description: 'Leading teams, mentoring, delegation, and conflict resolution' },
+  { id: 'communication', label: 'Communication & Stakeholder Management', description: 'Presenting, writing, cross-functional collaboration' },
+  { id: 'strategy', label: 'Strategic Thinking & Planning', description: 'Long-term planning, roadmapping, prioritization, business acumen' },
+  { id: 'problem_solving', label: 'Problem Solving & Decision Making', description: 'Analytical thinking, data-driven decisions, handling ambiguity' },
+  { id: 'execution', label: 'Project Execution & Delivery', description: 'Shipping on time, managing scope, quality standards' },
+]
+
+const EXPERIENCE_QUESTIONS = [
+  { id: 'years_in_role', label: 'How many years have you been in your current role?', options: ['Less than 1 year', '1-2 years', '2-4 years', '4-6 years', '6+ years'] },
+  { id: 'team_size', label: 'How many people have you directly managed or mentored?', options: ['None', '1-3', '4-8', '9-15', '15+'] },
+  { id: 'projects_led', label: 'How many cross-functional projects have you led end-to-end?', options: ['None', '1-2', '3-5', '6-10', '10+'] },
+]
+
+const PROFICIENCY_LABELS: Record<number, string> = {
+  1: 'Beginner',
+  2: 'Developing',
+  3: 'Competent',
+  4: 'Proficient',
+  5: 'Expert',
+}
+
 // ─── SECTION DEFINITIONS ───
 type EmployeeSection = 'assessment' | 'radar' | 'gaps' | 'learning-path' | 'mobility' | 'roi'
 type ManagerSection = 'wf-overview' | 'wf-heatmap' | 'wf-shortage' | 'wf-funnel' | 'wf-effectiveness' | 'wf-roi' | 'wf-underperforming' | 'pred-forecast'
@@ -441,12 +465,33 @@ export default function Page() {
   const [showSample, setShowSample] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
+  // Multi-step assessment state
+  const [assessmentStep, setAssessmentStep] = useState<1 | 2 | 3>(1)
+  const [skillRatings, setSkillRatings] = useState<Record<string, number>>({})
+  const [experienceAnswers, setExperienceAnswers] = useState<Record<string, string>>({})
+  const [strengthsNote, setStrengthsNote] = useState('')
+  const [growthNote, setGrowthNote] = useState('')
+
   const mainRef = useRef<HTMLDivElement>(null)
 
   // Scroll to top on section change
   useEffect(() => {
     if (mainRef.current) mainRef.current.scrollTop = 0
   }, [activeEmployeeSection, activeManagerSection])
+
+  // ─── HELPERS FOR ASSESSMENT STEPS ───
+  const isStep1Complete = currentRole !== '' && targetRole !== ''
+  const isStep2Complete = SKILL_AREAS.every(s => skillRatings[s.id] !== undefined) && EXPERIENCE_QUESTIONS.every(q => experienceAnswers[q.id] !== undefined)
+
+  const handleNextStep = useCallback(() => {
+    if (assessmentStep === 1 && isStep1Complete) setAssessmentStep(2)
+    else if (assessmentStep === 2 && isStep2Complete) setAssessmentStep(3)
+  }, [assessmentStep, isStep1Complete, isStep2Complete])
+
+  const handlePrevStep = useCallback(() => {
+    if (assessmentStep === 2) setAssessmentStep(1)
+    else if (assessmentStep === 3) setAssessmentStep(2)
+  }, [assessmentStep])
 
   // ─── HANDLERS ───
   const handleStartAssessment = useCallback(async () => {
@@ -457,7 +502,22 @@ export default function Page() {
     setErrorMsg(null)
     setActiveAgentId(ORCHESTRATOR_AGENT_ID)
     try {
-      const message = `Perform a comprehensive skill gap assessment for an employee transitioning from ${currentRole} to ${targetRole}. Generate skill radar data, gap heatmap, learning path, mobility matches, and ROI metrics.`
+      // Build self-evaluation context
+      const skillSummary = SKILL_AREAS.map(s => `${s.label}: ${skillRatings[s.id] ?? 0}/5 (${PROFICIENCY_LABELS[skillRatings[s.id] ?? 0] ?? 'Not rated'})`).join('; ')
+      const expSummary = EXPERIENCE_QUESTIONS.map(q => `${q.label} ${experienceAnswers[q.id] ?? 'Not answered'}`).join('; ')
+      const strengthsContext = strengthsNote.trim() ? `Key strengths: ${strengthsNote.trim()}.` : ''
+      const growthContext = growthNote.trim() ? `Areas wanting to grow: ${growthNote.trim()}.` : ''
+
+      const message = `Perform a comprehensive skill gap assessment for an employee transitioning from ${currentRole} to ${targetRole}.
+
+Employee Self-Evaluation:
+- Skill Ratings: ${skillSummary}
+- Experience: ${expSummary}
+${strengthsContext}
+${growthContext}
+
+Based on this self-evaluation, generate accurate skill radar data (current_score and required_score for each relevant skill), gap heatmap with severity classifications, a personalized learning path, internal mobility matches, and ROI metrics. The current scores should reflect the employee's self-evaluation ratings appropriately.`
+
       const result = await callAIAgent(message, ORCHESTRATOR_AGENT_ID)
       if (result.success) {
         const data = parseAgentResponse(result)
@@ -477,7 +537,7 @@ export default function Page() {
       setIsAssessing(false)
       setActiveAgentId(null)
     }
-  }, [currentRole, targetRole])
+  }, [currentRole, targetRole, skillRatings, experienceAnswers, strengthsNote, growthNote])
 
   const handleRefreshWorkforce = useCallback(async () => {
     setIsLoadingWorkforce(true)
@@ -687,52 +747,288 @@ export default function Page() {
                 {/* SECTION: Assessment */}
                 {activeEmployeeSection === 'assessment' && (
                   <div className="space-y-6">
-                    <Card className="shadow-md hover:shadow-lg transition-shadow">
-                      <CardHeader>
-                        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiTarget className="text-primary" /> Skill Assessment Configuration</CardTitle>
-                        <CardDescription className="font-sans leading-relaxed">Select your current role and the role you aspire to transition into. Our AI agents will perform a comprehensive skill gap analysis, generate a personalized learning path, and identify internal mobility opportunities.</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                          <div className="space-y-2">
-                            <Label className="font-sans text-sm">Current Role</Label>
-                            <Select value={currentRole} onValueChange={setCurrentRole}>
-                              <SelectTrigger><SelectValue placeholder="Select current role" /></SelectTrigger>
-                              <SelectContent>{ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="font-sans text-sm">Target Role</Label>
-                            <Select value={targetRole} onValueChange={setTargetRole}>
-                              <SelectTrigger><SelectValue placeholder="Select target role" /></SelectTrigger>
-                              <SelectContent>{ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
-                            </Select>
-                          </div>
-                          <Button onClick={handleStartAssessment} disabled={isAssessing || !currentRole || !targetRole} className="h-10">
-                            {isAssessing ? <><FiRefreshCw className="mr-2 animate-spin" /> Analyzing...</> : <><FiPlay className="mr-2" /> Start Skill Assessment</>}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    {/* Step Progress Indicator */}
+                    {!hasEmployeeData && !isAssessing && (
+                      <div className="flex items-center gap-2">
+                        {[
+                          { step: 1 as const, label: 'Role Selection' },
+                          { step: 2 as const, label: 'Self-Evaluation' },
+                          { step: 3 as const, label: 'Review & Analyze' },
+                        ].map((s, idx) => (
+                          <React.Fragment key={s.step}>
+                            <button
+                              onClick={() => {
+                                if (s.step === 1) setAssessmentStep(1)
+                                else if (s.step === 2 && isStep1Complete) setAssessmentStep(2)
+                                else if (s.step === 3 && isStep1Complete && isStep2Complete) setAssessmentStep(3)
+                              }}
+                              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-sans transition-all ${
+                                assessmentStep === s.step
+                                  ? 'bg-primary text-primary-foreground font-medium shadow-sm'
+                                  : assessmentStep > s.step
+                                    ? 'bg-primary/10 text-primary font-medium cursor-pointer'
+                                    : 'bg-secondary/50 text-muted-foreground cursor-default'
+                              }`}
+                            >
+                              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-mono font-bold flex-shrink-0 ${
+                                assessmentStep === s.step
+                                  ? 'bg-primary-foreground text-primary'
+                                  : assessmentStep > s.step
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-muted text-muted-foreground'
+                              }`}>
+                                {assessmentStep > s.step ? <FiCheckCircle className="text-xs" /> : s.step}
+                              </span>
+                              <span className="hidden sm:inline">{s.label}</span>
+                            </button>
+                            {idx < 2 && <FiChevronRight className="text-muted-foreground/40 flex-shrink-0" />}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    )}
 
-                    {isAssessing && <SkeletonDashboard message="Analyzing skill gaps, generating learning paths, and scanning mobility opportunities..." />}
-
-                    {!isAssessing && !hasEmployeeData && (
-                      <Card className="shadow-md">
-                        <CardContent className="p-12 text-center">
-                          <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                            <FiTarget className="text-primary text-2xl" />
+                    {/* STEP 1: Role Selection */}
+                    {!hasEmployeeData && !isAssessing && assessmentStep === 1 && (
+                      <Card className="shadow-md hover:shadow-lg transition-shadow">
+                        <CardHeader>
+                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiUser className="text-primary" /> Step 1: Select Your Roles</CardTitle>
+                          <CardDescription className="font-sans leading-relaxed">Choose your current position and the role you want to transition into. This tells our AI which skills to assess and what gaps to identify.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <Label className="font-sans text-sm font-medium">Current Role</Label>
+                              <Select value={currentRole} onValueChange={setCurrentRole}>
+                                <SelectTrigger className="h-11"><SelectValue placeholder="Select your current role" /></SelectTrigger>
+                                <SelectContent>{ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                              </Select>
+                              <p className="text-xs text-muted-foreground">The role you currently hold</p>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="font-sans text-sm font-medium">Target Role</Label>
+                              <Select value={targetRole} onValueChange={setTargetRole}>
+                                <SelectTrigger className="h-11"><SelectValue placeholder="Select your target role" /></SelectTrigger>
+                                <SelectContent>{ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                              </Select>
+                              <p className="text-xs text-muted-foreground">The role you aspire to move into</p>
+                            </div>
                           </div>
-                          <h3 className="font-serif text-xl font-semibold mb-2">Begin Your Skill Assessment</h3>
-                          <p className="text-muted-foreground text-sm max-w-md mx-auto leading-relaxed font-sans">
-                            Select your current role and target role above, then click &quot;Start Skill Assessment&quot; to receive a comprehensive analysis. Once complete, navigate through the sidebar sections to explore your results.
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-4 font-sans">
-                            Or toggle &quot;Sample Data&quot; in the top bar to explore with example data.
-                          </p>
+                          <Separator />
+                          <div className="flex justify-end">
+                            <Button onClick={handleNextStep} disabled={!isStep1Complete} className="h-10 px-6">
+                              Continue to Self-Evaluation <FiChevronRight className="ml-2" />
+                            </Button>
+                          </div>
                         </CardContent>
                       </Card>
                     )}
+
+                    {/* STEP 2: Self-Evaluation */}
+                    {!hasEmployeeData && !isAssessing && assessmentStep === 2 && (
+                      <div className="space-y-6">
+                        <Card className="shadow-md hover:shadow-lg transition-shadow">
+                          <CardHeader>
+                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiBarChart2 className="text-primary" /> Step 2: Rate Your Skills</CardTitle>
+                            <CardDescription className="font-sans leading-relaxed">Rate yourself honestly on each skill area from 1 (Beginner) to 5 (Expert). This self-assessment helps the AI calibrate your current skill levels accurately.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-5">
+                            {SKILL_AREAS.map(skill => (
+                              <div key={skill.id} className="p-4 rounded-lg bg-secondary/30 border border-secondary">
+                                <div className="flex items-start justify-between mb-2">
+                                  <div>
+                                    <p className="text-sm font-medium">{skill.label}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">{skill.description}</p>
+                                  </div>
+                                  {skillRatings[skill.id] !== undefined && (
+                                    <Badge variant="outline" className="text-xs font-mono flex-shrink-0 ml-3">
+                                      {skillRatings[skill.id]}/5 - {PROFICIENCY_LABELS[skillRatings[skill.id]]}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-3">
+                                  {[1, 2, 3, 4, 5].map(level => (
+                                    <button
+                                      key={level}
+                                      onClick={() => setSkillRatings(prev => ({ ...prev, [skill.id]: level }))}
+                                      className={`flex-1 py-2 px-1 rounded-md text-xs font-sans font-medium transition-all border ${
+                                        skillRatings[skill.id] === level
+                                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                                          : skillRatings[skill.id] !== undefined && skillRatings[skill.id] >= level
+                                            ? 'bg-primary/15 text-primary border-primary/25'
+                                            : 'bg-card text-muted-foreground border-border hover:bg-secondary hover:text-foreground'
+                                      }`}
+                                    >
+                                      <span className="block font-mono text-sm">{level}</span>
+                                      <span className="block text-[10px] mt-0.5 leading-tight">{PROFICIENCY_LABELS[level]}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </CardContent>
+                        </Card>
+
+                        <Card className="shadow-md hover:shadow-lg transition-shadow">
+                          <CardHeader>
+                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiBriefcase className="text-primary" /> Experience Context</CardTitle>
+                            <CardDescription className="font-sans">Help us understand your background for a more accurate assessment</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-5">
+                            {EXPERIENCE_QUESTIONS.map(q => (
+                              <div key={q.id} className="space-y-2">
+                                <Label className="font-sans text-sm">{q.label}</Label>
+                                <div className="flex flex-wrap gap-2">
+                                  {q.options.map(opt => (
+                                    <button
+                                      key={opt}
+                                      onClick={() => setExperienceAnswers(prev => ({ ...prev, [q.id]: opt }))}
+                                      className={`px-3 py-1.5 rounded-md text-xs font-sans transition-all border ${
+                                        experienceAnswers[q.id] === opt
+                                          ? 'bg-primary text-primary-foreground border-primary shadow-sm font-medium'
+                                          : 'bg-card text-muted-foreground border-border hover:bg-secondary hover:text-foreground'
+                                      }`}
+                                    >
+                                      {opt}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+
+                            <Separator className="my-2" />
+
+                            <div className="space-y-2">
+                              <Label className="font-sans text-sm">What do you consider your strongest skills? <span className="text-muted-foreground">(optional)</span></Label>
+                              <Textarea
+                                value={strengthsNote}
+                                onChange={(e) => setStrengthsNote(e.target.value)}
+                                placeholder="e.g., I'm strong at data analysis, stakeholder presentations, and sprint planning..."
+                                rows={2}
+                                className="resize-none text-sm"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="font-sans text-sm">What areas do you most want to grow in? <span className="text-muted-foreground">(optional)</span></Label>
+                              <Textarea
+                                value={growthNote}
+                                onChange={(e) => setGrowthNote(e.target.value)}
+                                placeholder="e.g., I want to improve my strategic thinking, executive communication, and team leadership..."
+                                rows={2}
+                                className="resize-none text-sm"
+                              />
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <div className="flex justify-between">
+                          <Button variant="outline" onClick={handlePrevStep} className="h-10 px-6">
+                            <FiChevronDown className="mr-2 rotate-90" /> Back
+                          </Button>
+                          <Button onClick={handleNextStep} disabled={!isStep2Complete} className="h-10 px-6">
+                            Review & Analyze <FiChevronRight className="ml-2" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STEP 3: Review & Run */}
+                    {!hasEmployeeData && !isAssessing && assessmentStep === 3 && (
+                      <div className="space-y-6">
+                        <Card className="shadow-md hover:shadow-lg transition-shadow">
+                          <CardHeader>
+                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiCompass className="text-primary" /> Step 3: Review & Launch Analysis</CardTitle>
+                            <CardDescription className="font-sans leading-relaxed">Review your inputs below. When ready, click &quot;Run Skill Gap Analysis&quot; to generate your personalized assessment.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-5">
+                            {/* Role Summary */}
+                            <div className="p-4 rounded-lg bg-primary/5 border border-primary/15">
+                              <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2">Career Transition</p>
+                              <div className="flex items-center gap-3">
+                                <div className="flex-1 p-3 rounded-md bg-card border border-border">
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Current Role</p>
+                                  <p className="text-sm font-medium mt-0.5">{currentRole}</p>
+                                </div>
+                                <FiArrowRight className="text-primary flex-shrink-0" />
+                                <div className="flex-1 p-3 rounded-md bg-card border border-border">
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Target Role</p>
+                                  <p className="text-sm font-medium mt-0.5">{targetRole}</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Skill Ratings Summary */}
+                            <div>
+                              <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3">Self-Evaluation Ratings</p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                {SKILL_AREAS.map(skill => {
+                                  const rating = skillRatings[skill.id] ?? 0
+                                  return (
+                                    <div key={skill.id} className="flex items-center gap-3 p-2.5 rounded-md bg-secondary/30">
+                                      <span className="text-sm flex-1 font-sans">{skill.label}</span>
+                                      <div className="flex items-center gap-1.5">
+                                        {[1, 2, 3, 4, 5].map(n => (
+                                          <span key={n} className={`w-2 h-2 rounded-full ${n <= rating ? 'bg-primary' : 'bg-muted'}`} />
+                                        ))}
+                                        <span className="text-xs font-mono ml-1 text-muted-foreground">{rating}/5</span>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Experience Summary */}
+                            <div>
+                              <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3">Experience</p>
+                              <div className="space-y-1.5">
+                                {EXPERIENCE_QUESTIONS.map(q => (
+                                  <div key={q.id} className="flex items-center justify-between py-1.5 px-2.5 rounded-md bg-secondary/30">
+                                    <span className="text-xs text-muted-foreground font-sans">{q.label}</span>
+                                    <Badge variant="outline" className="text-xs">{experienceAnswers[q.id] ?? '-'}</Badge>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Notes */}
+                            {(strengthsNote.trim() || growthNote.trim()) && (
+                              <div>
+                                <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-3">Additional Notes</p>
+                                {strengthsNote.trim() && (
+                                  <div className="p-3 rounded-md bg-secondary/30 mb-2">
+                                    <p className="text-xs text-muted-foreground font-semibold mb-1">Strengths</p>
+                                    <p className="text-sm font-sans">{strengthsNote}</p>
+                                  </div>
+                                )}
+                                {growthNote.trim() && (
+                                  <div className="p-3 rounded-md bg-secondary/30">
+                                    <p className="text-xs text-muted-foreground font-semibold mb-1">Growth Areas</p>
+                                    <p className="text-sm font-sans">{growthNote}</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            <Separator />
+
+                            <div className="flex justify-between">
+                              <Button variant="outline" onClick={handlePrevStep} className="h-10 px-6">
+                                <FiChevronDown className="mr-2 rotate-90" /> Back
+                              </Button>
+                              <Button onClick={handleStartAssessment} disabled={isAssessing} className="h-11 px-8 text-base">
+                                <FiPlay className="mr-2" /> Run Skill Gap Analysis
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <p className="text-xs text-center text-muted-foreground font-sans">
+                          Or toggle &quot;Sample Data&quot; in the top bar to explore with example data.
+                        </p>
+                      </div>
+                    )}
+
+                    {isAssessing && <SkeletonDashboard message="Analyzing your self-evaluation, identifying skill gaps, generating learning paths, and scanning mobility opportunities..." />}
 
                     {!isAssessing && hasEmployeeData && displayOrchestrator && (
                       <Card className="shadow-md bg-primary/5 border-primary/15">
