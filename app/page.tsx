@@ -742,7 +742,7 @@ export default function Page() {
                             <div className="flex-1">
                               <p className="font-serif font-semibold text-sm">Assessment Complete</p>
                               <p className="text-xs text-muted-foreground mt-0.5">
-                                {displayOrchestrator.employee_name ?? 'Employee'}: {displayOrchestrator.current_role ?? currentRole} → {displayOrchestrator.target_role ?? targetRole} | Readiness: <span className="font-mono font-bold text-primary">{displayOrchestrator.overall_readiness_score ?? 0}%</span>
+                                {displayOrchestrator.employee_name ?? 'Employee'}: {currentRole || displayOrchestrator.current_role || 'Current Role'} → {targetRole || displayOrchestrator.target_role || 'Target Role'} | Readiness: <span className="font-mono font-bold text-primary">{displayOrchestrator.overall_readiness_score ?? 0}%</span>
                               </p>
                             </div>
                             <p className="text-xs text-muted-foreground font-sans">Use the sidebar to explore each section</p>
@@ -761,7 +761,7 @@ export default function Page() {
                         <CardHeader className="pb-2">
                           <CardTitle className="font-serif text-lg tracking-wide">Assessment Result</CardTitle>
                           <CardDescription className="font-sans">
-                            {displayOrchestrator.employee_name ?? 'Employee'} - {displayOrchestrator.current_role ?? currentRole} to {displayOrchestrator.target_role ?? targetRole}
+                            {displayOrchestrator.employee_name ?? 'Employee'} - {currentRole || displayOrchestrator.current_role || 'Current Role'} to {targetRole || displayOrchestrator.target_role || 'Target Role'}
                           </CardDescription>
                         </CardHeader>
                         <CardContent className="flex flex-col items-center">
