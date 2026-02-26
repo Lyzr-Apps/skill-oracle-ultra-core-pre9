@@ -1,23 +1,24 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { callAIAgent } from '@/lib/aiAgent'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
+import { Separator } from '@/components/ui/separator'
 import {
   FiUser, FiBarChart2, FiTarget, FiTrendingUp, FiAward, FiBookOpen,
   FiRefreshCw, FiActivity, FiAlertTriangle, FiCheckCircle,
   FiClock, FiMapPin, FiBriefcase, FiZap, FiLayers, FiGrid,
-  FiDollarSign, FiUsers, FiPercent, FiStar, FiPlay
+  FiDollarSign, FiUsers, FiPercent, FiStar, FiPlay,
+  FiChevronRight, FiChevronDown, FiCompass, FiPieChart, FiArrowRight
 } from 'react-icons/fi'
 import {
   RadarChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar,
@@ -42,24 +43,35 @@ const CHART_COLORS = {
 
 // ─── ROLE OPTIONS ───
 const ROLES = [
-  'Software Engineer',
-  'Senior Software Engineer',
-  'Tech Lead',
-  'Engineering Manager',
-  'Product Manager',
-  'Senior Product Manager',
-  'Data Scientist',
-  'Senior Data Scientist',
-  'ML Engineer',
-  'DevOps Engineer',
-  'Cloud Architect',
-  'UX Designer',
-  'Senior UX Designer',
-  'QA Engineer',
-  'Security Engineer',
-  'Business Analyst',
-  'Project Manager',
-  'VP of Engineering',
+  'Software Engineer', 'Senior Software Engineer', 'Tech Lead', 'Engineering Manager',
+  'Product Manager', 'Senior Product Manager', 'Data Scientist', 'Senior Data Scientist',
+  'ML Engineer', 'DevOps Engineer', 'Cloud Architect', 'UX Designer',
+  'Senior UX Designer', 'QA Engineer', 'Security Engineer', 'Business Analyst',
+  'Project Manager', 'VP of Engineering',
+]
+
+// ─── SECTION DEFINITIONS ───
+type EmployeeSection = 'assessment' | 'radar' | 'gaps' | 'learning-path' | 'mobility' | 'roi'
+type ManagerSection = 'wf-overview' | 'wf-heatmap' | 'wf-shortage' | 'wf-funnel' | 'wf-effectiveness' | 'wf-roi' | 'wf-underperforming' | 'pred-forecast'
+
+const EMPLOYEE_SECTIONS: { id: EmployeeSection; label: string; icon: React.ComponentType<any> }[] = [
+  { id: 'assessment', label: 'Skill Assessment', icon: FiPlay },
+  { id: 'radar', label: 'Skill Radar & Readiness', icon: FiTarget },
+  { id: 'gaps', label: 'Gap Analysis', icon: FiGrid },
+  { id: 'learning-path', label: 'Learning Path', icon: FiBookOpen },
+  { id: 'mobility', label: 'Career Mobility', icon: FiMapPin },
+  { id: 'roi', label: 'ROI Metrics', icon: FiDollarSign },
+]
+
+const MANAGER_SECTIONS: { id: ManagerSection; label: string; icon: React.ComponentType<any>; group: string }[] = [
+  { id: 'wf-overview', label: 'Workforce Overview', icon: FiUsers, group: 'Workforce Intelligence' },
+  { id: 'wf-heatmap', label: 'Skill Heatmap', icon: FiLayers, group: 'Workforce Intelligence' },
+  { id: 'wf-shortage', label: 'Shortage Index', icon: FiAlertTriangle, group: 'Workforce Intelligence' },
+  { id: 'wf-funnel', label: 'Readiness Funnel', icon: FiBarChart2, group: 'Workforce Intelligence' },
+  { id: 'wf-effectiveness', label: 'Effectiveness Analytics', icon: FiActivity, group: 'Workforce Intelligence' },
+  { id: 'wf-roi', label: 'ROI by Department', icon: FiDollarSign, group: 'Workforce Intelligence' },
+  { id: 'wf-underperforming', label: 'Underperforming Programs', icon: FiAlertTriangle, group: 'Workforce Intelligence' },
+  { id: 'pred-forecast', label: 'Predictive Forecast', icon: FiTrendingUp, group: 'Predictive Analytics' },
 ]
 
 // ─── TYPESCRIPT INTERFACES ───
@@ -207,59 +219,17 @@ const SAMPLE_ORCHESTRATOR: OrchestratorResponse = {
     { role_title: 'Senior Engineer - Architecture', department: 'Infrastructure', readiness: 85, gap_skills: ['Stakeholder Mgmt'] },
     { role_title: 'Engineering Manager - Mobile', department: 'Product Engineering', readiness: 55, gap_skills: ['Team Leadership', 'Strategic Planning', 'Stakeholder Mgmt'] },
   ],
-  roi_metrics: {
-    effectiveness_score: 78,
-    acquisition_velocity: 3.2,
-    program_roi: 245,
-    retention_lift: 18,
-  },
+  roi_metrics: { effectiveness_score: 78, acquisition_velocity: 3.2, program_roi: 245, retention_lift: 18 },
   gap_summary: { critical_count: 3, important_count: 3, enhancement_count: 2 },
 }
 
 const SAMPLE_WORKFORCE: WorkforceResponse = {
-  summary_cards: {
-    total_employees_assessed: 847,
-    critical_skill_gaps: 156,
-    avg_readiness_score: 64,
-    learning_roi_percentage: 312,
-  },
+  summary_cards: { total_employees_assessed: 847, critical_skill_gaps: 156, avg_readiness_score: 64, learning_roi_percentage: 312 },
   skill_heatmap: [
-    {
-      department: 'Engineering',
-      skills: [
-        { skill_name: 'Cloud Architecture', proficiency: 72, gap_severity: 'Low' },
-        { skill_name: 'AI/ML', proficiency: 45, gap_severity: 'Critical' },
-        { skill_name: 'Security', proficiency: 58, gap_severity: 'High' },
-        { skill_name: 'Leadership', proficiency: 52, gap_severity: 'High' },
-      ],
-    },
-    {
-      department: 'Product',
-      skills: [
-        { skill_name: 'Cloud Architecture', proficiency: 35, gap_severity: 'Critical' },
-        { skill_name: 'AI/ML', proficiency: 40, gap_severity: 'Critical' },
-        { skill_name: 'Security', proficiency: 30, gap_severity: 'Critical' },
-        { skill_name: 'Leadership', proficiency: 68, gap_severity: 'Low' },
-      ],
-    },
-    {
-      department: 'Data Science',
-      skills: [
-        { skill_name: 'Cloud Architecture', proficiency: 55, gap_severity: 'High' },
-        { skill_name: 'AI/ML', proficiency: 82, gap_severity: 'Low' },
-        { skill_name: 'Security', proficiency: 48, gap_severity: 'High' },
-        { skill_name: 'Leadership', proficiency: 45, gap_severity: 'Critical' },
-      ],
-    },
-    {
-      department: 'DevOps',
-      skills: [
-        { skill_name: 'Cloud Architecture', proficiency: 88, gap_severity: 'Low' },
-        { skill_name: 'AI/ML', proficiency: 30, gap_severity: 'Critical' },
-        { skill_name: 'Security', proficiency: 75, gap_severity: 'Low' },
-        { skill_name: 'Leadership', proficiency: 42, gap_severity: 'Critical' },
-      ],
-    },
+    { department: 'Engineering', skills: [{ skill_name: 'Cloud Architecture', proficiency: 72, gap_severity: 'Low' }, { skill_name: 'AI/ML', proficiency: 45, gap_severity: 'Critical' }, { skill_name: 'Security', proficiency: 58, gap_severity: 'High' }, { skill_name: 'Leadership', proficiency: 52, gap_severity: 'High' }] },
+    { department: 'Product', skills: [{ skill_name: 'Cloud Architecture', proficiency: 35, gap_severity: 'Critical' }, { skill_name: 'AI/ML', proficiency: 40, gap_severity: 'Critical' }, { skill_name: 'Security', proficiency: 30, gap_severity: 'Critical' }, { skill_name: 'Leadership', proficiency: 68, gap_severity: 'Low' }] },
+    { department: 'Data Science', skills: [{ skill_name: 'Cloud Architecture', proficiency: 55, gap_severity: 'High' }, { skill_name: 'AI/ML', proficiency: 82, gap_severity: 'Low' }, { skill_name: 'Security', proficiency: 48, gap_severity: 'High' }, { skill_name: 'Leadership', proficiency: 45, gap_severity: 'Critical' }] },
+    { department: 'DevOps', skills: [{ skill_name: 'Cloud Architecture', proficiency: 88, gap_severity: 'Low' }, { skill_name: 'AI/ML', proficiency: 30, gap_severity: 'Critical' }, { skill_name: 'Security', proficiency: 75, gap_severity: 'Low' }, { skill_name: 'Leadership', proficiency: 42, gap_severity: 'Critical' }] },
   ],
   shortage_index: [
     { skill_name: 'AI/ML Engineering', shortage_severity: 'Critical', affected_departments: ['Engineering', 'Product', 'DevOps'], employees_with_skill: 34, employees_needing_skill: 120 },
@@ -274,14 +244,7 @@ const SAMPLE_WORKFORCE: WorkforceResponse = {
     { role: 'Data Scientist', not_ready: 30, developing: 35, nearly_ready: 22, ready: 13 },
     { role: 'Product Manager', not_ready: 20, developing: 40, nearly_ready: 25, ready: 15 },
   ],
-  effectiveness_analytics: {
-    adoption_rate: 78,
-    completion_rate: 65,
-    avg_skill_lift: 23,
-    performance_correlation: 0.72,
-    retention_correlation: 0.68,
-    promotion_acceleration: 34,
-  },
+  effectiveness_analytics: { adoption_rate: 78, completion_rate: 65, avg_skill_lift: 23, performance_correlation: 0.72, retention_correlation: 0.68, promotion_acceleration: 34 },
   roi_by_department: [
     { department: 'Engineering', investment: 450000, returns: 1350000, roi_percentage: 200 },
     { department: 'Product', investment: 280000, returns: 820000, roi_percentage: 193 },
@@ -323,19 +286,12 @@ const SAMPLE_PREDICTIVE: PredictiveResponse = {
     { month: 18, readiness_percentage: 88, confidence_lower: 74, confidence_upper: 100 },
   ],
   strategic_recommendations: [
-    { title: 'Launch AI Academy Program', description: 'Create an internal AI Academy with tiered learning paths for Generative AI, MLOps, and Responsible AI. Partner with leading AI training providers for certifications.', priority: 'Critical', impact: 'High', timeline: '0-3 months' },
-    { title: 'Hire Strategic AI Leaders', description: 'Recruit 5-8 senior AI practitioners to serve as technical leads and internal trainers, accelerating knowledge transfer across teams.', priority: 'High', impact: 'High', timeline: '1-4 months' },
-    { title: 'Establish AI Ethics Board', description: 'Form a cross-functional Responsible AI committee to develop governance frameworks and embed ethical AI practices into all projects.', priority: 'Critical', impact: 'Medium', timeline: '0-2 months' },
-    { title: 'Cloud ML Infrastructure Investment', description: 'Upgrade cloud infrastructure to support ML workloads, enabling hands-on training environments and production ML pipelines.', priority: 'Medium', impact: 'High', timeline: '2-6 months' },
+    { title: 'Launch AI Academy Program', description: 'Create an internal AI Academy with tiered learning paths for Generative AI, MLOps, and Responsible AI.', priority: 'Critical', impact: 'High', timeline: '0-3 months' },
+    { title: 'Hire Strategic AI Leaders', description: 'Recruit 5-8 senior AI practitioners to serve as technical leads and internal trainers.', priority: 'High', impact: 'High', timeline: '1-4 months' },
+    { title: 'Establish AI Ethics Board', description: 'Form a cross-functional Responsible AI committee to develop governance frameworks.', priority: 'Critical', impact: 'Medium', timeline: '0-2 months' },
+    { title: 'Cloud ML Infrastructure Investment', description: 'Upgrade cloud infrastructure to support ML workloads and training environments.', priority: 'Medium', impact: 'High', timeline: '2-6 months' },
   ],
 }
-
-// ─── AGENT INFO ───
-const AGENTS = [
-  { id: ORCHESTRATOR_AGENT_ID, name: 'Learning Orchestrator', role: 'Employee assessment and skill gap analysis' },
-  { id: WORKFORCE_AGENT_ID, name: 'Workforce Intelligence', role: 'Org-wide analytics and L&D effectiveness' },
-  { id: PREDICTIVE_AGENT_ID, name: 'Predictive Capability Gap', role: 'Future skill shortage forecasting' },
-]
 
 // ─── PARSE AGENT RESPONSE ───
 function parseAgentResponse(result: any): any {
@@ -356,31 +312,7 @@ function parseAgentResponse(result: any): any {
   }
 }
 
-// ─── MARKDOWN RENDERER ───
-function renderMarkdown(text: string) {
-  if (!text) return null
-  return (
-    <div className="space-y-2">
-      {text.split('\n').map((line, i) => {
-        if (line.startsWith('### ')) return <h4 key={i} className="font-semibold text-sm mt-3 mb-1">{line.slice(4)}</h4>
-        if (line.startsWith('## ')) return <h3 key={i} className="font-semibold text-base mt-3 mb-1">{line.slice(3)}</h3>
-        if (line.startsWith('# ')) return <h2 key={i} className="font-bold text-lg mt-4 mb-2">{line.slice(2)}</h2>
-        if (line.startsWith('- ') || line.startsWith('* ')) return <li key={i} className="ml-4 list-disc text-sm">{formatInline(line.slice(2))}</li>
-        if (/^\d+\.\s/.test(line)) return <li key={i} className="ml-4 list-decimal text-sm">{formatInline(line.replace(/^\d+\.\s/, ''))}</li>
-        if (!line.trim()) return <div key={i} className="h-1" />
-        return <p key={i} className="text-sm">{formatInline(line)}</p>
-      })}
-    </div>
-  )
-}
-
-function formatInline(text: string) {
-  const parts = text.split(/\*\*(.*?)\*\*/g)
-  if (parts.length === 1) return text
-  return parts.map((part, i) => i % 2 === 1 ? <strong key={i} className="font-semibold">{part}</strong> : part)
-}
-
-// ─── HELPER: CLASSIFICATION BADGE ───
+// ─── HELPERS ───
 function classificationBadge(classification: string) {
   const cls = (classification ?? '').toLowerCase()
   if (cls === 'critical') return <Badge variant="destructive" className="text-xs">{classification}</Badge>
@@ -388,7 +320,6 @@ function classificationBadge(classification: string) {
   return <Badge variant="secondary" className="text-xs">{classification}</Badge>
 }
 
-// ─── HELPER: SEVERITY COLOR ───
 function severityColor(severity: string): string {
   const s = (severity ?? '').toLowerCase()
   if (s === 'critical') return 'bg-destructive/15 text-destructive border-destructive/30'
@@ -397,7 +328,6 @@ function severityColor(severity: string): string {
   return 'bg-muted text-muted-foreground border-muted'
 }
 
-// ─── HELPER: HEATMAP CELL ───
 function heatmapCellColor(proficiency: number): string {
   if (proficiency >= 75) return 'bg-green-700/20 text-green-900'
   if (proficiency >= 55) return 'bg-yellow-600/20 text-yellow-900'
@@ -405,14 +335,12 @@ function heatmapCellColor(proficiency: number): string {
   return 'bg-red-600/20 text-red-900'
 }
 
-// ─── HELPER: FORMAT CURRENCY ───
 function formatCurrency(val: number): string {
   if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`
   if (val >= 1000) return `$${(val / 1000).toFixed(0)}K`
   return `$${val}`
 }
 
-// ─── HELPER: TYPE BADGE COLOR ───
 function typeBadgeClass(type: string): string {
   const t = (type ?? '').toLowerCase()
   if (t === 'course') return 'bg-primary/15 text-primary border-primary/25'
@@ -424,7 +352,7 @@ function typeBadgeClass(type: string): string {
 }
 
 // ─── ERROR BOUNDARY ───
-class ErrorBoundary extends React.Component<
+class PageErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; error: string }
 > {
@@ -451,10 +379,7 @@ class ErrorBoundary extends React.Component<
   }
 }
 
-// ═══════════════════════════════════════════════════
-// EMPLOYEE VIEW COMPONENTS
-// ═══════════════════════════════════════════════════
-
+// ─── READINESS GAUGE ───
 function ReadinessGauge({ score }: { score: number }) {
   const radius = 60
   const circumference = 2 * Math.PI * radius
@@ -472,592 +397,7 @@ function ReadinessGauge({ score }: { score: number }) {
   )
 }
 
-function SkillRadarSection({ data }: { data: OrchestratorResponse['skill_radar_data'] }) {
-  const radarData = Array.isArray(data) ? data : []
-  if (radarData.length === 0) return null
-  return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiTarget className="text-primary" /> Skill Radar</CardTitle>
-        <CardDescription className="font-sans">Current vs. required competency scores</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={320}>
-          <RadarChart data={radarData}>
-            <PolarGrid stroke="hsl(35, 15%, 75%)" />
-            <PolarAngleAxis dataKey="skill_name" tick={{ fill: 'hsl(30, 22%, 14%)', fontSize: 11 }} />
-            <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10 }} />
-            <Radar name="Current" dataKey="current_score" stroke={CHART_COLORS.c1} fill={CHART_COLORS.c1} fillOpacity={0.3} />
-            <Radar name="Required" dataKey="required_score" stroke={CHART_COLORS.c2} fill={CHART_COLORS.c2} fillOpacity={0.15} />
-            <Legend />
-            <Tooltip />
-          </RadarChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
-  )
-}
-
-function GapHeatmapSection({ data, summary }: { data: OrchestratorResponse['gap_heatmap']; summary: OrchestratorResponse['gap_summary'] }) {
-  const items = Array.isArray(data) ? data : []
-  return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiGrid className="text-primary" /> Gap Heatmap</CardTitle>
-        <CardDescription className="font-sans">Skill gaps classified by severity</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex gap-4 mb-4">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-destructive/10 border border-destructive/20">
-            <FiAlertTriangle className="text-destructive text-sm" />
-            <span className="font-mono text-sm font-semibold text-destructive">{summary?.critical_count ?? 0}</span>
-            <span className="text-xs text-destructive">Critical</span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-accent/10 border border-accent/20">
-            <FiActivity className="text-accent text-sm" />
-            <span className="font-mono text-sm font-semibold">{summary?.important_count ?? 0}</span>
-            <span className="text-xs">Important</span>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted border border-muted">
-            <FiStar className="text-muted-foreground text-sm" />
-            <span className="font-mono text-sm font-semibold text-muted-foreground">{summary?.enhancement_count ?? 0}</span>
-            <span className="text-xs text-muted-foreground">Enhancement</span>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {items.map((gap, i) => {
-            const cls = (gap?.classification ?? '').toLowerCase()
-            const bgClass = cls === 'critical' ? 'bg-destructive/10 border-destructive/20' : cls === 'important' ? 'bg-accent/10 border-accent/20' : 'bg-muted border-muted'
-            return (
-              <div key={i} className={`p-3 rounded-lg border ${bgClass}`}>
-                <p className="text-xs font-medium truncate">{gap?.skill_name ?? ''}</p>
-                <p className="text-xs text-muted-foreground">{gap?.category ?? ''}</p>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="font-mono text-lg font-bold">{gap?.delta ?? 0}</span>
-                  {classificationBadge(gap?.classification ?? '')}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function LearningPathSection({ data }: { data: OrchestratorResponse['learning_path'] }) {
-  const activities = Array.isArray(data?.activities) ? data.activities.sort((a, b) => (a?.sequence ?? 0) - (b?.sequence ?? 0)) : []
-  return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiBookOpen className="text-primary" /> Learning Path</CardTitle>
-            <CardDescription className="font-sans">Personalized adaptive learning journey</CardDescription>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Momentum Score</p>
-            <p className="font-mono text-2xl font-bold text-primary">{data?.momentum_score ?? 0}%</p>
-            <p className="text-xs text-muted-foreground">{data?.total_weeks ?? 0} weeks total</p>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          {activities.map((activity, i) => (
-            <div key={i} className="flex items-start gap-4 p-3 rounded-lg bg-secondary/50 border border-secondary">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-mono font-bold">{activity?.sequence ?? i + 1}</div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm">{activity?.title ?? ''}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Skill: {activity?.skill ?? ''}</p>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Badge variant="outline" className={`text-xs ${typeBadgeClass(activity?.type ?? '')}`}>{activity?.type ?? ''}</Badge>
-                <span className="text-xs text-muted-foreground font-mono flex items-center gap-1"><FiClock className="text-xs" />{activity?.hours ?? 0}h</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function MobilityMatchesSection({ data }: { data: OrchestratorResponse['mobility_matches'] }) {
-  const matches = Array.isArray(data) ? data : []
-  return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiMapPin className="text-primary" /> Internal Mobility Matches</CardTitle>
-        <CardDescription className="font-sans">Career opportunities aligned with your profile</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {matches.map((match, i) => (
-            <div key={i} className="p-4 rounded-lg border border-border bg-card">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <p className="font-medium text-sm">{match?.role_title ?? ''}</p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1"><FiBriefcase className="text-xs" />{match?.department ?? ''}</p>
-                </div>
-                <div className="text-right">
-                  <span className="font-mono text-lg font-bold text-primary">{match?.readiness ?? 0}%</span>
-                  <p className="text-xs text-muted-foreground">Readiness</p>
-                </div>
-              </div>
-              <Progress value={match?.readiness ?? 0} className="h-2 mb-3" />
-              {Array.isArray(match?.gap_skills) && match.gap_skills.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="text-xs text-muted-foreground mr-1">Gap Skills:</span>
-                  {match.gap_skills.map((skill, j) => (
-                    <Badge key={j} variant="outline" className="text-xs">{skill}</Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function ROIMetricsSection({ data }: { data: OrchestratorResponse['roi_metrics'] }) {
-  const metrics = [
-    { label: 'Effectiveness Score', value: `${data?.effectiveness_score ?? 0}%`, icon: FiCheckCircle },
-    { label: 'Acquisition Velocity', value: `${data?.acquisition_velocity ?? 0}x`, icon: FiZap },
-    { label: 'Program ROI', value: `${data?.program_roi ?? 0}%`, icon: FiDollarSign },
-    { label: 'Retention Lift', value: `+${data?.retention_lift ?? 0}%`, icon: FiTrendingUp },
-  ]
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {metrics.map((m, i) => (
-        <Card key={i} className="shadow-md hover:shadow-lg transition-shadow">
-          <CardContent className="p-4 flex flex-col items-center text-center">
-            <m.icon className="text-primary text-xl mb-2" />
-            <p className="font-mono text-2xl font-bold">{m.value}</p>
-            <p className="text-xs text-muted-foreground mt-1">{m.label}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════
-// MANAGER VIEW COMPONENTS — WORKFORCE INTELLIGENCE
-// ═══════════════════════════════════════════════════
-
-function WorkforceSummaryCards({ data }: { data: WorkforceResponse['summary_cards'] }) {
-  const cards = [
-    { label: 'Employees Assessed', value: data?.total_employees_assessed ?? 0, icon: FiUsers, format: (v: number) => v.toLocaleString() },
-    { label: 'Critical Skill Gaps', value: data?.critical_skill_gaps ?? 0, icon: FiAlertTriangle, format: (v: number) => v.toString() },
-    { label: 'Avg Readiness Score', value: data?.avg_readiness_score ?? 0, icon: FiTarget, format: (v: number) => `${v}%` },
-    { label: 'Learning ROI', value: data?.learning_roi_percentage ?? 0, icon: FiTrendingUp, format: (v: number) => `${v}%` },
-  ]
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {cards.map((c, i) => (
-        <Card key={i} className="shadow-md hover:shadow-lg transition-shadow">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
-              <c.icon className="text-primary text-lg" />
-              <Badge variant="secondary" className="text-xs font-sans">Live</Badge>
-            </div>
-            <p className="font-mono text-3xl font-bold">{c.format(c.value)}</p>
-            <p className="text-xs text-muted-foreground mt-1 font-sans">{c.label}</p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  )
-}
-
-function OrgSkillHeatmap({ data }: { data: WorkforceResponse['skill_heatmap'] }) {
-  const departments = Array.isArray(data) ? data : []
-  if (departments.length === 0) return null
-  const allSkills: string[] = []
-  departments.forEach(dept => {
-    if (Array.isArray(dept?.skills)) {
-      dept.skills.forEach(s => {
-        if (s?.skill_name && !allSkills.includes(s.skill_name)) allSkills.push(s.skill_name)
-      })
-    }
-  })
-  return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiLayers className="text-primary" /> Org-Wide Skill Heatmap</CardTitle>
-        <CardDescription className="font-sans">Department proficiency across key skills</CardDescription>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="font-serif text-sm">Department</TableHead>
-              {allSkills.map((s, i) => <TableHead key={i} className="text-center text-xs font-sans">{s}</TableHead>)}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {departments.map((dept, i) => (
-              <TableRow key={i}>
-                <TableCell className="font-medium text-sm">{dept?.department ?? ''}</TableCell>
-                {allSkills.map((skillName, j) => {
-                  const skill = Array.isArray(dept?.skills) ? dept.skills.find(s => s?.skill_name === skillName) : null
-                  const prof = skill?.proficiency ?? 0
-                  return (
-                    <TableCell key={j} className="text-center">
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-mono font-semibold ${heatmapCellColor(prof)}`}>{prof}%</span>
-                    </TableCell>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-700/20 inline-block" /> 75+</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-yellow-600/20 inline-block" /> 55-74</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-orange-600/20 inline-block" /> 35-54</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-600/20 inline-block" /> Below 35</span>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function ShortageIndex({ data }: { data: WorkforceResponse['shortage_index'] }) {
-  const items = Array.isArray(data) ? data : []
-  return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiAlertTriangle className="text-primary" /> Critical Skill Shortage Index</CardTitle>
-        <CardDescription className="font-sans">Skills with the greatest supply-demand mismatch</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {items.map((item, i) => {
-          const total = (item?.employees_needing_skill ?? 1)
-          const ratio = total > 0 ? Math.round(((item?.employees_with_skill ?? 0) / total) * 100) : 0
-          return (
-            <div key={i} className={`p-4 rounded-lg border ${severityColor(item?.shortage_severity ?? '')}`}>
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="font-medium text-sm">{item?.skill_name ?? ''}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {Array.isArray(item?.affected_departments) ? item.affected_departments.join(', ') : ''}
-                  </p>
-                </div>
-                {classificationBadge(item?.shortage_severity ?? '')}
-              </div>
-              <div className="flex items-center gap-4 mt-2">
-                <div className="flex-1">
-                  <Progress value={ratio} className="h-2" />
-                </div>
-                <span className="font-mono text-xs whitespace-nowrap">{item?.employees_with_skill ?? 0} / {item?.employees_needing_skill ?? 0}</span>
-              </div>
-            </div>
-          )
-        })}
-      </CardContent>
-    </Card>
-  )
-}
-
-function ReadinessFunnelChart({ data }: { data: WorkforceResponse['readiness_funnel'] }) {
-  const items = Array.isArray(data) ? data : []
-  if (items.length === 0) return null
-  return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiBarChart2 className="text-primary" /> Readiness Funnel by Role</CardTitle>
-        <CardDescription className="font-sans">Employee readiness distribution across target roles</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={items} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 15%, 80%)" />
-            <XAxis type="number" tick={{ fontSize: 11 }} />
-            <YAxis type="category" dataKey="role" width={100} tick={{ fontSize: 11 }} />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="ready" stackId="a" fill="hsl(140, 50%, 35%)" name="Ready" />
-            <Bar dataKey="nearly_ready" stackId="a" fill={CHART_COLORS.c2} name="Nearly Ready" />
-            <Bar dataKey="developing" stackId="a" fill={CHART_COLORS.c4} name="Developing" />
-            <Bar dataKey="not_ready" stackId="a" fill={CHART_COLORS.c5} name="Not Ready" />
-          </BarChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
-  )
-}
-
-function EffectivenessAnalytics({ data }: { data: WorkforceResponse['effectiveness_analytics'] }) {
-  const metrics = [
-    { label: 'Adoption Rate', value: `${data?.adoption_rate ?? 0}%`, icon: FiUsers },
-    { label: 'Completion Rate', value: `${data?.completion_rate ?? 0}%`, icon: FiCheckCircle },
-    { label: 'Avg Skill Lift', value: `+${data?.avg_skill_lift ?? 0}%`, icon: FiTrendingUp },
-    { label: 'Performance Corr.', value: (data?.performance_correlation ?? 0).toFixed(2), icon: FiActivity },
-    { label: 'Retention Corr.', value: (data?.retention_correlation ?? 0).toFixed(2), icon: FiAward },
-    { label: 'Promotion Accel.', value: `${data?.promotion_acceleration ?? 0}%`, icon: FiZap },
-  ]
-  return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiActivity className="text-primary" /> Learning Effectiveness Analytics</CardTitle>
-        <CardDescription className="font-sans">Impact metrics for L&D programs</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {metrics.map((m, i) => (
-            <div key={i} className="p-3 rounded-lg bg-secondary/50 border border-secondary text-center">
-              <m.icon className="mx-auto text-primary text-lg mb-1.5" />
-              <p className="font-mono text-xl font-bold">{m.value}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{m.label}</p>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function ROIByDeptChart({ data }: { data: WorkforceResponse['roi_by_department'] }) {
-  const items = Array.isArray(data) ? data : []
-  if (items.length === 0) return null
-  return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiDollarSign className="text-primary" /> ROI by Department</CardTitle>
-        <CardDescription className="font-sans">Investment vs. returns across departments</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={items} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 15%, 80%)" />
-            <XAxis dataKey="department" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatCurrency(v)} />
-            <Tooltip formatter={(value: number) => formatCurrency(value)} />
-            <Legend />
-            <Bar dataKey="investment" fill={CHART_COLORS.c4} name="Investment" />
-            <Bar dataKey="returns" fill={CHART_COLORS.c2} name="Returns" />
-          </BarChart>
-        </ResponsiveContainer>
-        <div className="mt-4 overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs">Department</TableHead>
-                <TableHead className="text-xs text-right">Investment</TableHead>
-                <TableHead className="text-xs text-right">Returns</TableHead>
-                <TableHead className="text-xs text-right">ROI %</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((r, i) => (
-                <TableRow key={i}>
-                  <TableCell className="text-sm font-medium">{r?.department ?? ''}</TableCell>
-                  <TableCell className="text-sm text-right font-mono">{formatCurrency(r?.investment ?? 0)}</TableCell>
-                  <TableCell className="text-sm text-right font-mono">{formatCurrency(r?.returns ?? 0)}</TableCell>
-                  <TableCell className="text-sm text-right font-mono font-semibold">{r?.roi_percentage ?? 0}%</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function UnderperformingPrograms({ data }: { data: WorkforceResponse['underperforming_programs'] }) {
-  const items = Array.isArray(data) ? data : []
-  return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiAlertTriangle className="text-accent" /> Underperforming Programs</CardTitle>
-        <CardDescription className="font-sans">Programs flagged for review or replacement</CardDescription>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-xs">Program Name</TableHead>
-              <TableHead className="text-xs text-center">Completion %</TableHead>
-              <TableHead className="text-xs text-center">Skill Lift</TableHead>
-              <TableHead className="text-xs text-right">Cost</TableHead>
-              <TableHead className="text-xs">Recommendation</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((p, i) => (
-              <TableRow key={i}>
-                <TableCell className="text-sm font-medium">{p?.program_name ?? ''}</TableCell>
-                <TableCell className="text-center">
-                  <span className="font-mono text-sm">{p?.completion_rate ?? 0}%</span>
-                </TableCell>
-                <TableCell className="text-center">
-                  <span className="font-mono text-sm">+{p?.skill_lift ?? 0}%</span>
-                </TableCell>
-                <TableCell className="text-right font-mono text-sm">{formatCurrency(p?.cost ?? 0)}</TableCell>
-                <TableCell className="text-xs text-muted-foreground max-w-[200px]">{p?.recommendation ?? ''}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  )
-}
-
-// ═══════════════════════════════════════════════════
-// MANAGER VIEW COMPONENTS — PREDICTIVE FORECAST
-// ═══════════════════════════════════════════════════
-
-function ShortageForecasts({ data }: { data: PredictiveResponse['skill_shortage_forecasts'] }) {
-  const items = Array.isArray(data) ? data : []
-  return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiTrendingUp className="text-primary" /> Skill Shortage Forecasts</CardTitle>
-        <CardDescription className="font-sans">Projected skill gaps over 6, 12, and 18 months</CardDescription>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-xs">Skill</TableHead>
-              <TableHead className="text-xs text-center">Supply</TableHead>
-              <TableHead className="text-xs text-center">Demand</TableHead>
-              <TableHead className="text-xs text-center">6 Mo</TableHead>
-              <TableHead className="text-xs text-center">12 Mo</TableHead>
-              <TableHead className="text-xs text-center">18 Mo</TableHead>
-              <TableHead className="text-xs text-center">Severity</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((item, i) => (
-              <TableRow key={i}>
-                <TableCell className="text-sm font-medium">{item?.skill_name ?? ''}</TableCell>
-                <TableCell className="text-center font-mono text-sm">{item?.current_supply ?? 0}</TableCell>
-                <TableCell className="text-center font-mono text-sm">{item?.projected_demand ?? 0}</TableCell>
-                <TableCell className="text-center font-mono text-sm text-destructive">{item?.gap_at_6_months ?? 0}</TableCell>
-                <TableCell className="text-center font-mono text-sm text-destructive">{item?.gap_at_12_months ?? 0}</TableCell>
-                <TableCell className="text-center font-mono text-sm text-destructive">{item?.gap_at_18_months ?? 0}</TableCell>
-                <TableCell className="text-center">{classificationBadge(item?.severity ?? '')}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  )
-}
-
-function HiringVsUpskilling({ data }: { data: PredictiveResponse['hiring_vs_upskilling'] }) {
-  const items = Array.isArray(data) ? data : []
-  return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiPercent className="text-primary" /> Hiring vs. Upskilling Analysis</CardTitle>
-        <CardDescription className="font-sans">Cost and time comparison for talent strategies</CardDescription>
-      </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-xs">Skill</TableHead>
-              <TableHead className="text-xs text-right">Hire Cost</TableHead>
-              <TableHead className="text-xs text-center">Hire Time</TableHead>
-              <TableHead className="text-xs text-right">Upskill Cost</TableHead>
-              <TableHead className="text-xs text-center">Upskill Time</TableHead>
-              <TableHead className="text-xs">Recommendation</TableHead>
-              <TableHead className="text-xs text-center">Confidence</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((item, i) => (
-              <TableRow key={i}>
-                <TableCell className="text-sm font-medium">{item?.skill_name ?? ''}</TableCell>
-                <TableCell className="text-right font-mono text-sm">{formatCurrency(item?.hire_cost ?? 0)}</TableCell>
-                <TableCell className="text-center font-mono text-sm">{item?.hire_time_months ?? 0}mo</TableCell>
-                <TableCell className="text-right font-mono text-sm text-green-700">{formatCurrency(item?.upskill_cost ?? 0)}</TableCell>
-                <TableCell className="text-center font-mono text-sm">{item?.upskill_time_months ?? 0}mo</TableCell>
-                <TableCell className="text-xs max-w-[160px]">{item?.recommendation ?? ''}</TableCell>
-                <TableCell className="text-center">
-                  <span className="font-mono text-sm">{Math.round((item?.confidence ?? 0) * 100)}%</span>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  )
-}
-
-function ReadinessProjectionChart({ data }: { data: PredictiveResponse['readiness_projections'] }) {
-  const items = Array.isArray(data) ? data : []
-  if (items.length === 0) return null
-  return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiActivity className="text-primary" /> Readiness Projection</CardTitle>
-        <CardDescription className="font-sans">Workforce readiness trajectory with confidence bands</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={320}>
-          <AreaChart data={items} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 15%, 80%)" />
-            <XAxis dataKey="month" tick={{ fontSize: 11 }} label={{ value: 'Month', position: 'insideBottomRight', offset: -5, fontSize: 11 }} />
-            <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} label={{ value: 'Readiness %', angle: -90, position: 'insideLeft', fontSize: 11 }} />
-            <Tooltip />
-            <Area type="monotone" dataKey="confidence_upper" stroke="none" fill={CHART_COLORS.c2} fillOpacity={0.15} name="Upper Bound" />
-            <Area type="monotone" dataKey="confidence_lower" stroke="none" fill="transparent" fillOpacity={0} name="Lower Bound" />
-            <Line type="monotone" dataKey="readiness_percentage" stroke={CHART_COLORS.c1} strokeWidth={3} dot={{ fill: CHART_COLORS.c1, r: 4 }} name="Readiness %" />
-            <Line type="monotone" dataKey="confidence_lower" stroke={CHART_COLORS.c4} strokeWidth={1} strokeDasharray="4 4" dot={false} name="Lower Confidence" />
-            <Line type="monotone" dataKey="confidence_upper" stroke={CHART_COLORS.c4} strokeWidth={1} strokeDasharray="4 4" dot={false} name="Upper Confidence" />
-            <Legend />
-          </AreaChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
-  )
-}
-
-function StrategicRecommendations({ data }: { data: PredictiveResponse['strategic_recommendations'] }) {
-  const items = Array.isArray(data) ? data : []
-  return (
-    <Card className="shadow-md hover:shadow-lg transition-shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiStar className="text-primary" /> Strategic Recommendations</CardTitle>
-        <CardDescription className="font-sans">AI-generated strategic action items</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {items.map((rec, i) => (
-          <div key={i} className="p-4 rounded-lg border border-border bg-card">
-            <div className="flex items-start justify-between mb-2">
-              <h4 className="font-serif font-semibold text-sm">{rec?.title ?? ''}</h4>
-              <div className="flex gap-1.5 flex-shrink-0">
-                {classificationBadge(rec?.priority ?? '')}
-                <Badge variant="outline" className="text-xs">{rec?.impact ?? ''} Impact</Badge>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">{rec?.description ?? ''}</p>
-            <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-              <FiClock className="text-xs" />
-              <span>{rec?.timeline ?? ''}</span>
-            </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  )
-}
-
-// ═══════════════════════════════════════════════════
-// SKELETON LOADERS
-// ═══════════════════════════════════════════════════
-
+// ─── SKELETON LOADER ───
 function SkeletonDashboard({ message }: { message: string }) {
   return (
     <div className="space-y-6">
@@ -1074,36 +414,7 @@ function SkeletonDashboard({ message }: { message: string }) {
         <Card className="shadow-md"><CardContent className="p-6"><Skeleton className="h-5 w-40 mb-4" /><Skeleton className="h-[280px] w-full rounded-lg" /></CardContent></Card>
         <Card className="shadow-md"><CardContent className="p-6"><Skeleton className="h-5 w-40 mb-4" /><Skeleton className="h-[280px] w-full rounded-lg" /></CardContent></Card>
       </div>
-      <Card className="shadow-md"><CardContent className="p-6"><Skeleton className="h-5 w-40 mb-4" />{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full mb-3 rounded-lg" />)}</CardContent></Card>
     </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════
-// AGENT STATUS SECTION
-// ═══════════════════════════════════════════════════
-
-function AgentStatusSection({ activeAgentId }: { activeAgentId: string | null }) {
-  return (
-    <Card className="shadow-md">
-      <CardHeader className="pb-2">
-        <CardTitle className="font-serif text-sm tracking-wide flex items-center gap-2"><FiLayers className="text-primary text-sm" /> AI Agents</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {AGENTS.map(agent => {
-          const isActive = activeAgentId === agent.id
-          return (
-            <div key={agent.id} className="flex items-center gap-2 text-xs">
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground/30'}`} />
-              <div className="min-w-0">
-                <p className={`font-medium truncate ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>{agent.name}</p>
-                <p className="text-muted-foreground truncate text-[10px]">{agent.role}</p>
-              </div>
-            </div>
-          )
-        })}
-      </CardContent>
-    </Card>
   )
 }
 
@@ -1112,8 +423,10 @@ function AgentStatusSection({ activeAgentId }: { activeAgentId: string | null })
 // ═══════════════════════════════════════════════════
 
 export default function Page() {
-  // ─── STATE ───
   const [activeView, setActiveView] = useState<'employee' | 'manager'>('employee')
+  const [activeEmployeeSection, setActiveEmployeeSection] = useState<EmployeeSection>('assessment')
+  const [activeManagerSection, setActiveManagerSection] = useState<ManagerSection>('wf-overview')
+
   const [currentRole, setCurrentRole] = useState('')
   const [targetRole, setTargetRole] = useState('')
   const [orchestratorData, setOrchestratorData] = useState<OrchestratorResponse | null>(null)
@@ -1127,6 +440,13 @@ export default function Page() {
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null)
   const [showSample, setShowSample] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const mainRef = useRef<HTMLDivElement>(null)
+
+  // Scroll to top on section change
+  useEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0
+  }, [activeEmployeeSection, activeManagerSection])
 
   // ─── HANDLERS ───
   const handleStartAssessment = useCallback(async () => {
@@ -1144,13 +464,14 @@ export default function Page() {
         if (data) {
           setOrchestratorData(data as OrchestratorResponse)
           setAssessmentComplete(true)
+          setActiveEmployeeSection('radar')
         } else {
           setErrorMsg('Failed to parse assessment response. Please try again.')
         }
       } else {
         setErrorMsg(result.error ?? 'Assessment failed. Please try again.')
       }
-    } catch (err) {
+    } catch {
       setErrorMsg('An unexpected error occurred. Please try again.')
     } finally {
       setIsAssessing(false)
@@ -1168,15 +489,12 @@ export default function Page() {
       const result = await callAIAgent(message, WORKFORCE_AGENT_ID)
       if (result.success) {
         const data = parseAgentResponse(result)
-        if (data) {
-          setWorkforceData(data as WorkforceResponse)
-        } else {
-          setErrorMsg('Failed to parse workforce data. Please try again.')
-        }
+        if (data) setWorkforceData(data as WorkforceResponse)
+        else setErrorMsg('Failed to parse workforce data. Please try again.')
       } else {
         setErrorMsg(result.error ?? 'Workforce analysis failed. Please try again.')
       }
-    } catch (err) {
+    } catch {
       setErrorMsg('An unexpected error occurred. Please try again.')
     } finally {
       setIsLoadingWorkforce(false)
@@ -1195,15 +513,12 @@ export default function Page() {
       const result = await callAIAgent(message, PREDICTIVE_AGENT_ID)
       if (result.success) {
         const data = parseAgentResponse(result)
-        if (data) {
-          setPredictiveData(data as PredictiveResponse)
-        } else {
-          setErrorMsg('Failed to parse forecast data. Please try again.')
-        }
+        if (data) setPredictiveData(data as PredictiveResponse)
+        else setErrorMsg('Failed to parse forecast data. Please try again.')
       } else {
         setErrorMsg(result.error ?? 'Forecast failed. Please try again.')
       }
-    } catch (err) {
+    } catch {
       setErrorMsg('An unexpected error occurred. Please try again.')
     } finally {
       setIsLoadingForecast(false)
@@ -1211,18 +526,24 @@ export default function Page() {
     }
   }, [scenario])
 
-  // Determine data to display (sample toggle)
   const displayOrchestrator = showSample ? SAMPLE_ORCHESTRATOR : orchestratorData
   const displayWorkforce = showSample ? SAMPLE_WORKFORCE : workforceData
   const displayPredictive = showSample ? SAMPLE_PREDICTIVE : predictiveData
-  const showEmployeeDashboard = showSample || assessmentComplete
+  const hasEmployeeData = showSample || assessmentComplete
+
+  // Group manager sections
+  const managerGroups = MANAGER_SECTIONS.reduce<Record<string, typeof MANAGER_SECTIONS>>((acc, s) => {
+    if (!acc[s.group]) acc[s.group] = []
+    acc[s.group].push(s)
+    return acc
+  }, {})
 
   return (
-    <ErrorBoundary>
+    <PageErrorBoundary>
       <div className="min-h-screen bg-background text-foreground flex">
         {/* ═══ SIDEBAR ═══ */}
-        <aside className="w-64 flex-shrink-0 border-r border-sidebar-border bg-[hsl(35,25%,90%)] flex flex-col">
-          {/* Logo / Title */}
+        <aside className="w-72 flex-shrink-0 border-r border-sidebar-border bg-[hsl(35,25%,90%)] flex flex-col h-screen sticky top-0">
+          {/* Logo */}
           <div className="p-5 border-b border-sidebar-border">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
@@ -1235,32 +556,103 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 p-3 space-y-1">
-            <button
-              onClick={() => setActiveView('employee')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${activeView === 'employee' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-foreground hover:bg-[hsl(35,20%,85%)]'}`}
-            >
-              <FiUser className="text-base" />
-              <span className="font-sans font-medium">Employee Dashboard</span>
-            </button>
-            <button
-              onClick={() => setActiveView('manager')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${activeView === 'manager' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-foreground hover:bg-[hsl(35,20%,85%)]'}`}
-            >
-              <FiBarChart2 className="text-base" />
-              <span className="font-sans font-medium">L&D Command Center</span>
-            </button>
+          {/* View Toggle */}
+          <div className="px-3 pt-4 pb-2">
+            <div className="flex rounded-lg bg-[hsl(35,20%,85%)] p-1">
+              <button
+                onClick={() => { setActiveView('employee'); setActiveEmployeeSection('assessment') }}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-all ${activeView === 'employee' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <FiUser className="text-sm" /> Employee
+              </button>
+              <button
+                onClick={() => { setActiveView('manager'); setActiveManagerSection('wf-overview') }}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-all ${activeView === 'manager' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <FiBarChart2 className="text-sm" /> L&D Manager
+              </button>
+            </div>
+          </div>
+
+          {/* Section Navigation */}
+          <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+            {activeView === 'employee' && (
+              <>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold px-3 pt-2 pb-1">Employee Sections</p>
+                {EMPLOYEE_SECTIONS.map(sec => {
+                  const isActive = activeEmployeeSection === sec.id
+                  const needsData = sec.id !== 'assessment' && !hasEmployeeData
+                  return (
+                    <button
+                      key={sec.id}
+                      onClick={() => setActiveEmployeeSection(sec.id)}
+                      disabled={needsData}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
+                        isActive
+                          ? 'bg-primary/10 text-primary font-medium border border-primary/20'
+                          : needsData
+                            ? 'text-muted-foreground/40 cursor-not-allowed'
+                            : 'text-foreground hover:bg-[hsl(35,20%,85%)]'
+                      }`}
+                    >
+                      <sec.icon className={`text-sm flex-shrink-0 ${isActive ? 'text-primary' : ''}`} />
+                      <span className="font-sans text-left">{sec.label}</span>
+                      {isActive && <FiChevronRight className="ml-auto text-xs text-primary" />}
+                    </button>
+                  )
+                })}
+              </>
+            )}
+
+            {activeView === 'manager' && (
+              <>
+                {Object.entries(managerGroups).map(([group, sections]) => (
+                  <div key={group}>
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold px-3 pt-3 pb-1">{group}</p>
+                    {sections.map(sec => {
+                      const isActive = activeManagerSection === sec.id
+                      return (
+                        <button
+                          key={sec.id}
+                          onClick={() => setActiveManagerSection(sec.id)}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
+                            isActive
+                              ? 'bg-primary/10 text-primary font-medium border border-primary/20'
+                              : 'text-foreground hover:bg-[hsl(35,20%,85%)]'
+                          }`}
+                        >
+                          <sec.icon className={`text-sm flex-shrink-0 ${isActive ? 'text-primary' : ''}`} />
+                          <span className="font-sans text-left">{sec.label}</span>
+                          {isActive && <FiChevronRight className="ml-auto text-xs text-primary" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ))}
+              </>
+            )}
           </nav>
 
-          {/* Agent Status */}
+          {/* Agent Status Footer */}
           <div className="p-3 border-t border-sidebar-border">
-            <AgentStatusSection activeAgentId={activeAgentId} />
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold px-1 pb-2">AI Agents</p>
+            <div className="space-y-1.5">
+              {[
+                { id: ORCHESTRATOR_AGENT_ID, name: 'Orchestrator' },
+                { id: WORKFORCE_AGENT_ID, name: 'Workforce Intel' },
+                { id: PREDICTIVE_AGENT_ID, name: 'Predictive Gap' },
+              ].map(agent => (
+                <div key={agent.id} className="flex items-center gap-2 px-1">
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${activeAgentId === agent.id ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground/30'}`} />
+                  <span className={`text-[11px] ${activeAgentId === agent.id ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>{agent.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </aside>
 
         {/* ═══ MAIN CONTENT ═══ */}
-        <main className="flex-1 overflow-y-auto">
+        <main ref={mainRef} className="flex-1 overflow-y-auto h-screen">
           {/* TOP BAR */}
           <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-6 py-3 flex items-center justify-between">
             <div>
@@ -1268,7 +660,9 @@ export default function Page() {
                 {activeView === 'employee' ? 'AI Learning Co-Pilot' : 'L&D Command Center'}
               </h2>
               <p className="text-xs text-muted-foreground font-sans">
-                {activeView === 'employee' ? 'Personalized skill assessment and career development' : 'Organization-wide workforce intelligence and predictive analytics'}
+                {activeView === 'employee'
+                  ? EMPLOYEE_SECTIONS.find(s => s.id === activeEmployeeSection)?.label ?? ''
+                  : MANAGER_SECTIONS.find(s => s.id === activeManagerSection)?.label ?? ''}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -1287,267 +681,758 @@ export default function Page() {
               </div>
             )}
 
-            {/* ═══════════════════════════════════════════ */}
-            {/* EMPLOYEE VIEW */}
-            {/* ═══════════════════════════════════════════ */}
+            {/* ═══ EMPLOYEE VIEW ═══ */}
             {activeView === 'employee' && (
               <>
-                {/* Role Selection Header */}
-                <Card className="shadow-md hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiTarget className="text-primary" /> Skill Assessment Configuration</CardTitle>
-                    <CardDescription className="font-sans leading-relaxed">Select your current role and the role you aspire to transition into. Our AI agents will perform a comprehensive skill gap analysis, generate a personalized learning path, and identify internal mobility opportunities.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                      <div className="space-y-2">
-                        <Label className="font-sans text-sm">Current Role</Label>
-                        <Select value={currentRole} onValueChange={setCurrentRole}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select current role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="font-sans text-sm">Target Role</Label>
-                        <Select value={targetRole} onValueChange={setTargetRole}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select target role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <Button
-                        onClick={handleStartAssessment}
-                        disabled={isAssessing || !currentRole || !targetRole}
-                        className="h-10"
-                      >
-                        {isAssessing ? (
-                          <><FiRefreshCw className="mr-2 animate-spin" /> Analyzing...</>
-                        ) : (
-                          <><FiPlay className="mr-2" /> Start Skill Assessment</>
-                        )}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Loading State */}
-                {isAssessing && <SkeletonDashboard message="Analyzing skill gaps, generating learning paths, and scanning mobility opportunities..." />}
-
-                {/* Employee Dashboard */}
-                {!isAssessing && showEmployeeDashboard && displayOrchestrator && (
+                {/* SECTION: Assessment */}
+                {activeEmployeeSection === 'assessment' && (
                   <div className="space-y-6">
-                    {/* Top Row: Readiness + Radar */}
+                    <Card className="shadow-md hover:shadow-lg transition-shadow">
+                      <CardHeader>
+                        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiTarget className="text-primary" /> Skill Assessment Configuration</CardTitle>
+                        <CardDescription className="font-sans leading-relaxed">Select your current role and the role you aspire to transition into. Our AI agents will perform a comprehensive skill gap analysis, generate a personalized learning path, and identify internal mobility opportunities.</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                          <div className="space-y-2">
+                            <Label className="font-sans text-sm">Current Role</Label>
+                            <Select value={currentRole} onValueChange={setCurrentRole}>
+                              <SelectTrigger><SelectValue placeholder="Select current role" /></SelectTrigger>
+                              <SelectContent>{ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="font-sans text-sm">Target Role</Label>
+                            <Select value={targetRole} onValueChange={setTargetRole}>
+                              <SelectTrigger><SelectValue placeholder="Select target role" /></SelectTrigger>
+                              <SelectContent>{ROLES.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <Button onClick={handleStartAssessment} disabled={isAssessing || !currentRole || !targetRole} className="h-10">
+                            {isAssessing ? <><FiRefreshCw className="mr-2 animate-spin" /> Analyzing...</> : <><FiPlay className="mr-2" /> Start Skill Assessment</>}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {isAssessing && <SkeletonDashboard message="Analyzing skill gaps, generating learning paths, and scanning mobility opportunities..." />}
+
+                    {!isAssessing && !hasEmployeeData && (
+                      <Card className="shadow-md">
+                        <CardContent className="p-12 text-center">
+                          <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                            <FiTarget className="text-primary text-2xl" />
+                          </div>
+                          <h3 className="font-serif text-xl font-semibold mb-2">Begin Your Skill Assessment</h3>
+                          <p className="text-muted-foreground text-sm max-w-md mx-auto leading-relaxed font-sans">
+                            Select your current role and target role above, then click &quot;Start Skill Assessment&quot; to receive a comprehensive analysis. Once complete, navigate through the sidebar sections to explore your results.
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-4 font-sans">
+                            Or toggle &quot;Sample Data&quot; in the top bar to explore with example data.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    {!isAssessing && hasEmployeeData && displayOrchestrator && (
+                      <Card className="shadow-md bg-primary/5 border-primary/15">
+                        <CardContent className="p-5">
+                          <div className="flex items-center gap-4">
+                            <FiCheckCircle className="text-green-600 text-xl flex-shrink-0" />
+                            <div className="flex-1">
+                              <p className="font-serif font-semibold text-sm">Assessment Complete</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {displayOrchestrator.employee_name ?? 'Employee'}: {displayOrchestrator.current_role ?? currentRole} → {displayOrchestrator.target_role ?? targetRole} | Readiness: <span className="font-mono font-bold text-primary">{displayOrchestrator.overall_readiness_score ?? 0}%</span>
+                              </p>
+                            </div>
+                            <p className="text-xs text-muted-foreground font-sans">Use the sidebar to explore each section</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                )}
+
+                {/* SECTION: Skill Radar & Readiness */}
+                {activeEmployeeSection === 'radar' && hasEmployeeData && displayOrchestrator && (
+                  <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {/* Readiness + Employee Info */}
                       <Card className="shadow-md hover:shadow-lg transition-shadow">
                         <CardHeader className="pb-2">
                           <CardTitle className="font-serif text-lg tracking-wide">Assessment Result</CardTitle>
                           <CardDescription className="font-sans">
-                            {displayOrchestrator?.employee_name ?? 'Employee'} - {displayOrchestrator?.current_role ?? currentRole} to {displayOrchestrator?.target_role ?? targetRole}
+                            {displayOrchestrator.employee_name ?? 'Employee'} - {displayOrchestrator.current_role ?? currentRole} to {displayOrchestrator.target_role ?? targetRole}
                           </CardDescription>
                         </CardHeader>
                         <CardContent className="flex flex-col items-center">
-                          <ReadinessGauge score={displayOrchestrator?.overall_readiness_score ?? 0} />
+                          <ReadinessGauge score={displayOrchestrator.overall_readiness_score ?? 0} />
                           <p className="text-xs text-muted-foreground mt-2 text-center font-sans">Overall Readiness Score</p>
                         </CardContent>
                       </Card>
-
-                      {/* Skill Radar (takes 2 cols) */}
                       <div className="md:col-span-2">
-                        <SkillRadarSection data={displayOrchestrator?.skill_radar_data ?? []} />
+                        <Card className="shadow-md hover:shadow-lg transition-shadow">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiTarget className="text-primary" /> Skill Radar</CardTitle>
+                            <CardDescription className="font-sans">Current vs. required competency scores</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <ResponsiveContainer width="100%" height={340}>
+                              <RadarChart data={Array.isArray(displayOrchestrator.skill_radar_data) ? displayOrchestrator.skill_radar_data : []}>
+                                <PolarGrid stroke="hsl(35, 15%, 75%)" />
+                                <PolarAngleAxis dataKey="skill_name" tick={{ fill: 'hsl(30, 22%, 14%)', fontSize: 11 }} />
+                                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fontSize: 10 }} />
+                                <Radar name="Current" dataKey="current_score" stroke={CHART_COLORS.c1} fill={CHART_COLORS.c1} fillOpacity={0.3} />
+                                <Radar name="Required" dataKey="required_score" stroke={CHART_COLORS.c2} fill={CHART_COLORS.c2} fillOpacity={0.15} />
+                                <Legend />
+                                <Tooltip />
+                              </RadarChart>
+                            </ResponsiveContainer>
+                          </CardContent>
+                        </Card>
                       </div>
-                    </div>
-
-                    {/* ROI Metrics Row */}
-                    <ROIMetricsSection data={displayOrchestrator?.roi_metrics ?? { effectiveness_score: 0, acquisition_velocity: 0, program_roi: 0, retention_lift: 0 }} />
-
-                    {/* Gap Heatmap */}
-                    <GapHeatmapSection data={displayOrchestrator?.gap_heatmap ?? []} summary={displayOrchestrator?.gap_summary ?? { critical_count: 0, important_count: 0, enhancement_count: 0 }} />
-
-                    {/* Learning Path + Mobility */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <LearningPathSection data={displayOrchestrator?.learning_path ?? { momentum_score: 0, total_weeks: 0, activities: [] }} />
-                      <MobilityMatchesSection data={displayOrchestrator?.mobility_matches ?? []} />
                     </div>
                   </div>
                 )}
 
-                {/* Empty State (no data, no loading, sample off) */}
-                {!isAssessing && !showEmployeeDashboard && (
-                  <Card className="shadow-md">
-                    <CardContent className="p-12 text-center">
-                      <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                        <FiTarget className="text-primary text-2xl" />
-                      </div>
-                      <h3 className="font-serif text-xl font-semibold mb-2">Begin Your Skill Assessment</h3>
-                      <p className="text-muted-foreground text-sm max-w-md mx-auto leading-relaxed font-sans">
-                        Select your current role and target role above, then click &quot;Start Skill Assessment&quot; to receive a comprehensive analysis of your skill gaps, a personalized learning path, and matched internal career opportunities.
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-4 font-sans">
-                        Or toggle &quot;Sample Data&quot; in the top-right corner to explore the dashboard with example data.
-                      </p>
-                    </CardContent>
-                  </Card>
+                {/* SECTION: Gap Analysis */}
+                {activeEmployeeSection === 'gaps' && hasEmployeeData && displayOrchestrator && (
+                  <div className="space-y-6">
+                    <Card className="shadow-md hover:shadow-lg transition-shadow">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiGrid className="text-primary" /> Gap Heatmap</CardTitle>
+                        <CardDescription className="font-sans">Skill gaps classified by severity</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex gap-4 mb-4 flex-wrap">
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-destructive/10 border border-destructive/20">
+                            <FiAlertTriangle className="text-destructive text-sm" />
+                            <span className="font-mono text-sm font-semibold text-destructive">{displayOrchestrator.gap_summary?.critical_count ?? 0}</span>
+                            <span className="text-xs text-destructive">Critical</span>
+                          </div>
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-accent/10 border border-accent/20">
+                            <FiActivity className="text-accent text-sm" />
+                            <span className="font-mono text-sm font-semibold">{displayOrchestrator.gap_summary?.important_count ?? 0}</span>
+                            <span className="text-xs">Important</span>
+                          </div>
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted border border-muted">
+                            <FiStar className="text-muted-foreground text-sm" />
+                            <span className="font-mono text-sm font-semibold text-muted-foreground">{displayOrchestrator.gap_summary?.enhancement_count ?? 0}</span>
+                            <span className="text-xs text-muted-foreground">Enhancement</span>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {(Array.isArray(displayOrchestrator.gap_heatmap) ? displayOrchestrator.gap_heatmap : []).map((gap, i) => {
+                            const cls = (gap?.classification ?? '').toLowerCase()
+                            const bgClass = cls === 'critical' ? 'bg-destructive/10 border-destructive/20' : cls === 'important' ? 'bg-accent/10 border-accent/20' : 'bg-muted border-muted'
+                            return (
+                              <div key={i} className={`p-3 rounded-lg border ${bgClass}`}>
+                                <p className="text-xs font-medium truncate">{gap?.skill_name ?? ''}</p>
+                                <p className="text-xs text-muted-foreground">{gap?.category ?? ''}</p>
+                                <div className="flex items-center justify-between mt-2">
+                                  <span className="font-mono text-lg font-bold">{gap?.delta ?? 0}</span>
+                                  {classificationBadge(gap?.classification ?? '')}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {/* SECTION: Learning Path */}
+                {activeEmployeeSection === 'learning-path' && hasEmployeeData && displayOrchestrator && (
+                  <div className="space-y-6">
+                    <Card className="shadow-md hover:shadow-lg transition-shadow">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiBookOpen className="text-primary" /> Learning Path</CardTitle>
+                            <CardDescription className="font-sans">Personalized adaptive learning journey</CardDescription>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground">Momentum Score</p>
+                            <p className="font-mono text-2xl font-bold text-primary">{displayOrchestrator.learning_path?.momentum_score ?? 0}%</p>
+                            <p className="text-xs text-muted-foreground">{displayOrchestrator.learning_path?.total_weeks ?? 0} weeks total</p>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {(Array.isArray(displayOrchestrator.learning_path?.activities) ? displayOrchestrator.learning_path.activities.sort((a, b) => (a?.sequence ?? 0) - (b?.sequence ?? 0)) : []).map((activity, i) => (
+                            <div key={i} className="flex items-start gap-4 p-3 rounded-lg bg-secondary/50 border border-secondary">
+                              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-mono font-bold">{activity?.sequence ?? i + 1}</div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm">{activity?.title ?? ''}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Skill: {activity?.skill ?? ''}</p>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <Badge variant="outline" className={`text-xs ${typeBadgeClass(activity?.type ?? '')}`}>{activity?.type ?? ''}</Badge>
+                                <span className="text-xs text-muted-foreground font-mono flex items-center gap-1"><FiClock className="text-xs" />{activity?.hours ?? 0}h</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {/* SECTION: Career Mobility */}
+                {activeEmployeeSection === 'mobility' && hasEmployeeData && displayOrchestrator && (
+                  <div className="space-y-6">
+                    <Card className="shadow-md hover:shadow-lg transition-shadow">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiMapPin className="text-primary" /> Internal Mobility Matches</CardTitle>
+                        <CardDescription className="font-sans">Career opportunities aligned with your profile</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {(Array.isArray(displayOrchestrator.mobility_matches) ? displayOrchestrator.mobility_matches : []).map((match, i) => (
+                            <div key={i} className="p-4 rounded-lg border border-border bg-card">
+                              <div className="flex items-start justify-between mb-3">
+                                <div>
+                                  <p className="font-medium text-sm">{match?.role_title ?? ''}</p>
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1"><FiBriefcase className="text-xs" />{match?.department ?? ''}</p>
+                                </div>
+                                <div className="text-right">
+                                  <span className="font-mono text-lg font-bold text-primary">{match?.readiness ?? 0}%</span>
+                                  <p className="text-xs text-muted-foreground">Readiness</p>
+                                </div>
+                              </div>
+                              <Progress value={match?.readiness ?? 0} className="h-2 mb-3" />
+                              {Array.isArray(match?.gap_skills) && match.gap_skills.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                  <span className="text-xs text-muted-foreground mr-1">Gap Skills:</span>
+                                  {match.gap_skills.map((skill, j) => <Badge key={j} variant="outline" className="text-xs">{skill}</Badge>)}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {/* SECTION: ROI Metrics */}
+                {activeEmployeeSection === 'roi' && hasEmployeeData && displayOrchestrator && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { label: 'Effectiveness Score', value: `${displayOrchestrator.roi_metrics?.effectiveness_score ?? 0}%`, icon: FiCheckCircle },
+                        { label: 'Acquisition Velocity', value: `${displayOrchestrator.roi_metrics?.acquisition_velocity ?? 0}x`, icon: FiZap },
+                        { label: 'Program ROI', value: `${displayOrchestrator.roi_metrics?.program_roi ?? 0}%`, icon: FiDollarSign },
+                        { label: 'Retention Lift', value: `+${displayOrchestrator.roi_metrics?.retention_lift ?? 0}%`, icon: FiTrendingUp },
+                      ].map((m, i) => (
+                        <Card key={i} className="shadow-md hover:shadow-lg transition-shadow">
+                          <CardContent className="p-4 flex flex-col items-center text-center">
+                            <m.icon className="text-primary text-xl mb-2" />
+                            <p className="font-mono text-2xl font-bold">{m.value}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{m.label}</p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </>
             )}
 
-            {/* ═══════════════════════════════════════════ */}
-            {/* MANAGER VIEW */}
-            {/* ═══════════════════════════════════════════ */}
+            {/* ═══ MANAGER VIEW ═══ */}
             {activeView === 'manager' && (
-              <Tabs defaultValue="workforce" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6">
-                  <TabsTrigger value="workforce" className="font-sans">
-                    <FiBarChart2 className="mr-2" /> Workforce Intelligence
-                  </TabsTrigger>
-                  <TabsTrigger value="predictive" className="font-sans">
-                    <FiTrendingUp className="mr-2" /> Predictive Forecast
-                  </TabsTrigger>
-                </TabsList>
-
-                {/* ─── WORKFORCE INTELLIGENCE TAB ─── */}
-                <TabsContent value="workforce" className="space-y-6">
-                  {/* Action Header */}
-                  <Card className="shadow-md hover:shadow-lg transition-shadow">
-                    <CardContent className="p-5 flex items-center justify-between">
-                      <div>
-                        <h3 className="font-serif font-semibold text-base tracking-wide">Workforce Intelligence Report</h3>
-                        <p className="text-xs text-muted-foreground font-sans mt-0.5">Org-wide skill analytics, shortage index, and learning effectiveness metrics</p>
-                      </div>
-                      <Button onClick={handleRefreshWorkforce} disabled={isLoadingWorkforce}>
-                        {isLoadingWorkforce ? (
-                          <><FiRefreshCw className="mr-2 animate-spin" /> Generating...</>
-                        ) : (
-                          <><FiRefreshCw className="mr-2" /> Refresh Workforce Intelligence</>
-                        )}
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  {/* Loading */}
-                  {isLoadingWorkforce && <SkeletonDashboard message="Generating workforce intelligence report across all departments..." />}
-
-                  {/* Data Display */}
-                  {!isLoadingWorkforce && displayWorkforce && (
-                    <div className="space-y-6">
-                      <WorkforceSummaryCards data={displayWorkforce?.summary_cards ?? { total_employees_assessed: 0, critical_skill_gaps: 0, avg_readiness_score: 0, learning_roi_percentage: 0 }} />
-                      <OrgSkillHeatmap data={displayWorkforce?.skill_heatmap ?? []} />
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <ShortageIndex data={displayWorkforce?.shortage_index ?? []} />
-                        <ReadinessFunnelChart data={displayWorkforce?.readiness_funnel ?? []} />
-                      </div>
-                      <EffectivenessAnalytics data={displayWorkforce?.effectiveness_analytics ?? { adoption_rate: 0, completion_rate: 0, avg_skill_lift: 0, performance_correlation: 0, retention_correlation: 0, promotion_acceleration: 0 }} />
-                      <ROIByDeptChart data={displayWorkforce?.roi_by_department ?? []} />
-                      <UnderperformingPrograms data={displayWorkforce?.underperforming_programs ?? []} />
-                    </div>
-                  )}
-
-                  {/* Empty State */}
-                  {!isLoadingWorkforce && !displayWorkforce && (
-                    <Card className="shadow-md">
-                      <CardContent className="p-12 text-center">
-                        <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                          <FiBarChart2 className="text-primary text-2xl" />
+              <>
+                {/* SECTION: Workforce Overview */}
+                {activeManagerSection === 'wf-overview' && (
+                  <div className="space-y-6">
+                    <Card className="shadow-md hover:shadow-lg transition-shadow">
+                      <CardContent className="p-5 flex items-center justify-between">
+                        <div>
+                          <h3 className="font-serif font-semibold text-base tracking-wide">Workforce Intelligence Report</h3>
+                          <p className="text-xs text-muted-foreground font-sans mt-0.5">Org-wide skill analytics and learning effectiveness metrics</p>
                         </div>
-                        <h3 className="font-serif text-xl font-semibold mb-2">Workforce Intelligence</h3>
-                        <p className="text-muted-foreground text-sm max-w-md mx-auto leading-relaxed font-sans">
-                          Click &quot;Refresh Workforce Intelligence&quot; above to generate a comprehensive org-wide report including skill heatmaps, shortage indices, readiness funnels, and ROI analytics.
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-4 font-sans">
-                          Or toggle &quot;Sample Data&quot; to preview the dashboard with example data.
-                        </p>
+                        <Button onClick={handleRefreshWorkforce} disabled={isLoadingWorkforce}>
+                          {isLoadingWorkforce ? <><FiRefreshCw className="mr-2 animate-spin" /> Generating...</> : <><FiRefreshCw className="mr-2" /> Refresh Intelligence</>}
+                        </Button>
                       </CardContent>
                     </Card>
-                  )}
-                </TabsContent>
 
-                {/* ─── PREDICTIVE FORECAST TAB ─── */}
-                <TabsContent value="predictive" className="space-y-6">
-                  {/* Scenario Input */}
-                  <Card className="shadow-md hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiTrendingUp className="text-primary" /> Capability Gap Forecast</CardTitle>
-                      <CardDescription className="font-sans leading-relaxed">Describe a business scenario to forecast future skill shortages, compare hiring vs upskilling strategies, and generate strategic workforce recommendations.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        <Label className="font-sans text-sm">Scenario Description</Label>
-                        <Textarea
-                          value={scenario}
-                          onChange={(e) => setScenario(e.target.value)}
-                          placeholder="Example: Rapid AI/ML adoption across all product lines requiring 40% workforce upskilling in generative AI, MLOps, and responsible AI practices over the next 18 months..."
-                          rows={4}
-                          className="resize-none"
-                        />
+                    {isLoadingWorkforce && <SkeletonDashboard message="Generating workforce intelligence report across all departments..." />}
+
+                    {!isLoadingWorkforce && displayWorkforce && (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {[
+                          { label: 'Employees Assessed', value: displayWorkforce.summary_cards?.total_employees_assessed ?? 0, icon: FiUsers, fmt: (v: number) => v.toLocaleString() },
+                          { label: 'Critical Skill Gaps', value: displayWorkforce.summary_cards?.critical_skill_gaps ?? 0, icon: FiAlertTriangle, fmt: (v: number) => v.toString() },
+                          { label: 'Avg Readiness Score', value: displayWorkforce.summary_cards?.avg_readiness_score ?? 0, icon: FiTarget, fmt: (v: number) => `${v}%` },
+                          { label: 'Learning ROI', value: displayWorkforce.summary_cards?.learning_roi_percentage ?? 0, icon: FiTrendingUp, fmt: (v: number) => `${v}%` },
+                        ].map((c, i) => (
+                          <Card key={i} className="shadow-md hover:shadow-lg transition-shadow">
+                            <CardContent className="p-5">
+                              <div className="flex items-center justify-between mb-3">
+                                <c.icon className="text-primary text-lg" />
+                                <Badge variant="secondary" className="text-xs font-sans">Live</Badge>
+                              </div>
+                              <p className="font-mono text-3xl font-bold">{c.fmt(c.value)}</p>
+                              <p className="text-xs text-muted-foreground mt-1 font-sans">{c.label}</p>
+                            </CardContent>
+                          </Card>
+                        ))}
                       </div>
-                      <Button onClick={handleRunForecast} disabled={isLoadingForecast || !scenario.trim()}>
-                        {isLoadingForecast ? (
-                          <><FiRefreshCw className="mr-2 animate-spin" /> Running Forecast...</>
-                        ) : (
-                          <><FiPlay className="mr-2" /> Run Capability Forecast</>
-                        )}
-                      </Button>
-                    </CardContent>
-                  </Card>
+                    )}
 
-                  {/* Loading */}
-                  {isLoadingForecast && <SkeletonDashboard message="Running capability forecast and hiring vs upskilling simulations..." />}
+                    {!isLoadingWorkforce && !displayWorkforce && (
+                      <Card className="shadow-md">
+                        <CardContent className="p-12 text-center">
+                          <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                            <FiBarChart2 className="text-primary text-2xl" />
+                          </div>
+                          <h3 className="font-serif text-xl font-semibold mb-2">Workforce Intelligence</h3>
+                          <p className="text-muted-foreground text-sm max-w-md mx-auto leading-relaxed font-sans">
+                            Click &quot;Refresh Intelligence&quot; above to generate a comprehensive org-wide report. Or toggle &quot;Sample Data&quot; to preview.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                )}
 
-                  {/* Data Display */}
-                  {!isLoadingForecast && displayPredictive && (
-                    <div className="space-y-6">
-                      {/* Scenario Summary */}
-                      <Card className="shadow-md bg-primary/5 border-primary/15">
-                        <CardContent className="p-5">
-                          <div className="flex items-start gap-3">
-                            <FiTarget className="text-primary text-lg mt-0.5 flex-shrink-0" />
-                            <div>
-                              <p className="font-serif font-semibold text-sm mb-1">Forecast Scenario</p>
-                              <p className="text-sm text-muted-foreground leading-relaxed">{displayPredictive?.scenario ?? ''}</p>
-                              <Badge variant="outline" className="mt-2 text-xs">{displayPredictive?.forecast_horizon_months ?? 0} Month Horizon</Badge>
-                            </div>
+                {/* SECTION: Skill Heatmap */}
+                {activeManagerSection === 'wf-heatmap' && (
+                  <div className="space-y-6">
+                    {displayWorkforce ? (
+                      <Card className="shadow-md hover:shadow-lg transition-shadow">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiLayers className="text-primary" /> Org-Wide Skill Heatmap</CardTitle>
+                          <CardDescription className="font-sans">Department proficiency across key skills</CardDescription>
+                        </CardHeader>
+                        <CardContent className="overflow-x-auto">
+                          {(() => {
+                            const departments = Array.isArray(displayWorkforce.skill_heatmap) ? displayWorkforce.skill_heatmap : []
+                            const allSkills: string[] = []
+                            departments.forEach(dept => {
+                              if (Array.isArray(dept?.skills)) dept.skills.forEach(s => { if (s?.skill_name && !allSkills.includes(s.skill_name)) allSkills.push(s.skill_name) })
+                            })
+                            return (
+                              <>
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="font-serif text-sm">Department</TableHead>
+                                      {allSkills.map((s, i) => <TableHead key={i} className="text-center text-xs font-sans">{s}</TableHead>)}
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {departments.map((dept, i) => (
+                                      <TableRow key={i}>
+                                        <TableCell className="font-medium text-sm">{dept?.department ?? ''}</TableCell>
+                                        {allSkills.map((skillName, j) => {
+                                          const skill = Array.isArray(dept?.skills) ? dept.skills.find(s => s?.skill_name === skillName) : null
+                                          const prof = skill?.proficiency ?? 0
+                                          return <TableCell key={j} className="text-center"><span className={`inline-block px-2 py-1 rounded text-xs font-mono font-semibold ${heatmapCellColor(prof)}`}>{prof}%</span></TableCell>
+                                        })}
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                                <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+                                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-700/20 inline-block" /> 75+</span>
+                                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-yellow-600/20 inline-block" /> 55-74</span>
+                                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-orange-600/20 inline-block" /> 35-54</span>
+                                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-600/20 inline-block" /> Below 35</span>
+                                </div>
+                              </>
+                            )
+                          })()}
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card className="shadow-md"><CardContent className="p-12 text-center"><p className="text-muted-foreground text-sm font-sans">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
+                    )}
+                  </div>
+                )}
+
+                {/* SECTION: Shortage Index */}
+                {activeManagerSection === 'wf-shortage' && (
+                  <div className="space-y-6">
+                    {displayWorkforce ? (
+                      <Card className="shadow-md hover:shadow-lg transition-shadow">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiAlertTriangle className="text-primary" /> Critical Skill Shortage Index</CardTitle>
+                          <CardDescription className="font-sans">Skills with the greatest supply-demand mismatch</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          {(Array.isArray(displayWorkforce.shortage_index) ? displayWorkforce.shortage_index : []).map((item, i) => {
+                            const total = (item?.employees_needing_skill ?? 1)
+                            const ratio = total > 0 ? Math.round(((item?.employees_with_skill ?? 0) / total) * 100) : 0
+                            return (
+                              <div key={i} className={`p-4 rounded-lg border ${severityColor(item?.shortage_severity ?? '')}`}>
+                                <div className="flex items-center justify-between mb-2">
+                                  <div>
+                                    <p className="font-medium text-sm">{item?.skill_name ?? ''}</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">{Array.isArray(item?.affected_departments) ? item.affected_departments.join(', ') : ''}</p>
+                                  </div>
+                                  {classificationBadge(item?.shortage_severity ?? '')}
+                                </div>
+                                <div className="flex items-center gap-4 mt-2">
+                                  <div className="flex-1"><Progress value={ratio} className="h-2" /></div>
+                                  <span className="font-mono text-xs whitespace-nowrap">{item?.employees_with_skill ?? 0} / {item?.employees_needing_skill ?? 0}</span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card className="shadow-md"><CardContent className="p-12 text-center"><p className="text-muted-foreground text-sm font-sans">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
+                    )}
+                  </div>
+                )}
+
+                {/* SECTION: Readiness Funnel */}
+                {activeManagerSection === 'wf-funnel' && (
+                  <div className="space-y-6">
+                    {displayWorkforce ? (
+                      <Card className="shadow-md hover:shadow-lg transition-shadow">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiBarChart2 className="text-primary" /> Readiness Funnel by Role</CardTitle>
+                          <CardDescription className="font-sans">Employee readiness distribution across target roles</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <ResponsiveContainer width="100%" height={360}>
+                            <BarChart data={Array.isArray(displayWorkforce.readiness_funnel) ? displayWorkforce.readiness_funnel : []} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 15%, 80%)" />
+                              <XAxis type="number" tick={{ fontSize: 11 }} />
+                              <YAxis type="category" dataKey="role" width={110} tick={{ fontSize: 11 }} />
+                              <Tooltip />
+                              <Legend />
+                              <Bar dataKey="ready" stackId="a" fill="hsl(140, 50%, 35%)" name="Ready" />
+                              <Bar dataKey="nearly_ready" stackId="a" fill={CHART_COLORS.c2} name="Nearly Ready" />
+                              <Bar dataKey="developing" stackId="a" fill={CHART_COLORS.c4} name="Developing" />
+                              <Bar dataKey="not_ready" stackId="a" fill={CHART_COLORS.c5} name="Not Ready" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card className="shadow-md"><CardContent className="p-12 text-center"><p className="text-muted-foreground text-sm font-sans">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
+                    )}
+                  </div>
+                )}
+
+                {/* SECTION: Effectiveness Analytics */}
+                {activeManagerSection === 'wf-effectiveness' && (
+                  <div className="space-y-6">
+                    {displayWorkforce ? (
+                      <Card className="shadow-md hover:shadow-lg transition-shadow">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiActivity className="text-primary" /> Learning Effectiveness Analytics</CardTitle>
+                          <CardDescription className="font-sans">Impact metrics for L&D programs</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            {[
+                              { label: 'Adoption Rate', value: `${displayWorkforce.effectiveness_analytics?.adoption_rate ?? 0}%`, icon: FiUsers },
+                              { label: 'Completion Rate', value: `${displayWorkforce.effectiveness_analytics?.completion_rate ?? 0}%`, icon: FiCheckCircle },
+                              { label: 'Avg Skill Lift', value: `+${displayWorkforce.effectiveness_analytics?.avg_skill_lift ?? 0}%`, icon: FiTrendingUp },
+                              { label: 'Performance Corr.', value: (displayWorkforce.effectiveness_analytics?.performance_correlation ?? 0).toFixed(2), icon: FiActivity },
+                              { label: 'Retention Corr.', value: (displayWorkforce.effectiveness_analytics?.retention_correlation ?? 0).toFixed(2), icon: FiAward },
+                              { label: 'Promotion Accel.', value: `${displayWorkforce.effectiveness_analytics?.promotion_acceleration ?? 0}%`, icon: FiZap },
+                            ].map((m, i) => (
+                              <div key={i} className="p-4 rounded-lg bg-secondary/50 border border-secondary text-center">
+                                <m.icon className="mx-auto text-primary text-lg mb-1.5" />
+                                <p className="font-mono text-xl font-bold">{m.value}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{m.label}</p>
+                              </div>
+                            ))}
                           </div>
                         </CardContent>
                       </Card>
+                    ) : (
+                      <Card className="shadow-md"><CardContent className="p-12 text-center"><p className="text-muted-foreground text-sm font-sans">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
+                    )}
+                  </div>
+                )}
 
-                      <ShortageForecasts data={displayPredictive?.skill_shortage_forecasts ?? []} />
-                      <HiringVsUpskilling data={displayPredictive?.hiring_vs_upskilling ?? []} />
-                      <ReadinessProjectionChart data={displayPredictive?.readiness_projections ?? []} />
-                      <StrategicRecommendations data={displayPredictive?.strategic_recommendations ?? []} />
-                    </div>
-                  )}
+                {/* SECTION: ROI by Department */}
+                {activeManagerSection === 'wf-roi' && (
+                  <div className="space-y-6">
+                    {displayWorkforce ? (
+                      <Card className="shadow-md hover:shadow-lg transition-shadow">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiDollarSign className="text-primary" /> ROI by Department</CardTitle>
+                          <CardDescription className="font-sans">Investment vs. returns across departments</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={Array.isArray(displayWorkforce.roi_by_department) ? displayWorkforce.roi_by_department : []} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 15%, 80%)" />
+                              <XAxis dataKey="department" tick={{ fontSize: 11 }} />
+                              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => formatCurrency(v)} />
+                              <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                              <Legend />
+                              <Bar dataKey="investment" fill={CHART_COLORS.c4} name="Investment" />
+                              <Bar dataKey="returns" fill={CHART_COLORS.c2} name="Returns" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                          <div className="mt-4 overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs">Department</TableHead>
+                                  <TableHead className="text-xs text-right">Investment</TableHead>
+                                  <TableHead className="text-xs text-right">Returns</TableHead>
+                                  <TableHead className="text-xs text-right">ROI %</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {(Array.isArray(displayWorkforce.roi_by_department) ? displayWorkforce.roi_by_department : []).map((r, i) => (
+                                  <TableRow key={i}>
+                                    <TableCell className="text-sm font-medium">{r?.department ?? ''}</TableCell>
+                                    <TableCell className="text-sm text-right font-mono">{formatCurrency(r?.investment ?? 0)}</TableCell>
+                                    <TableCell className="text-sm text-right font-mono">{formatCurrency(r?.returns ?? 0)}</TableCell>
+                                    <TableCell className="text-sm text-right font-mono font-semibold">{r?.roi_percentage ?? 0}%</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card className="shadow-md"><CardContent className="p-12 text-center"><p className="text-muted-foreground text-sm font-sans">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
+                    )}
+                  </div>
+                )}
 
-                  {/* Empty State */}
-                  {!isLoadingForecast && !displayPredictive && (
-                    <Card className="shadow-md">
-                      <CardContent className="p-12 text-center">
-                        <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                          <FiTrendingUp className="text-primary text-2xl" />
+                {/* SECTION: Underperforming Programs */}
+                {activeManagerSection === 'wf-underperforming' && (
+                  <div className="space-y-6">
+                    {displayWorkforce ? (
+                      <Card className="shadow-md hover:shadow-lg transition-shadow">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiAlertTriangle className="text-accent" /> Underperforming Programs</CardTitle>
+                          <CardDescription className="font-sans">Programs flagged for review or replacement</CardDescription>
+                        </CardHeader>
+                        <CardContent className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="text-xs">Program Name</TableHead>
+                                <TableHead className="text-xs text-center">Completion %</TableHead>
+                                <TableHead className="text-xs text-center">Skill Lift</TableHead>
+                                <TableHead className="text-xs text-right">Cost</TableHead>
+                                <TableHead className="text-xs">Recommendation</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {(Array.isArray(displayWorkforce.underperforming_programs) ? displayWorkforce.underperforming_programs : []).map((p, i) => (
+                                <TableRow key={i}>
+                                  <TableCell className="text-sm font-medium">{p?.program_name ?? ''}</TableCell>
+                                  <TableCell className="text-center"><span className="font-mono text-sm">{p?.completion_rate ?? 0}%</span></TableCell>
+                                  <TableCell className="text-center"><span className="font-mono text-sm">+{p?.skill_lift ?? 0}%</span></TableCell>
+                                  <TableCell className="text-right font-mono text-sm">{formatCurrency(p?.cost ?? 0)}</TableCell>
+                                  <TableCell className="text-xs text-muted-foreground max-w-[200px]">{p?.recommendation ?? ''}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card className="shadow-md"><CardContent className="p-12 text-center"><p className="text-muted-foreground text-sm font-sans">Load workforce data from the Overview section first, or enable Sample Data.</p></CardContent></Card>
+                    )}
+                  </div>
+                )}
+
+                {/* SECTION: Predictive Forecast */}
+                {activeManagerSection === 'pred-forecast' && (
+                  <div className="space-y-6">
+                    <Card className="shadow-md hover:shadow-lg transition-shadow">
+                      <CardHeader>
+                        <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiTrendingUp className="text-primary" /> Capability Gap Forecast</CardTitle>
+                        <CardDescription className="font-sans leading-relaxed">Describe a business scenario to forecast future skill shortages, compare hiring vs upskilling strategies, and generate strategic workforce recommendations.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="font-sans text-sm">Scenario Description</Label>
+                          <Textarea
+                            value={scenario}
+                            onChange={(e) => setScenario(e.target.value)}
+                            placeholder="Example: Rapid AI/ML adoption across all product lines requiring 40% workforce upskilling in generative AI, MLOps, and responsible AI practices over the next 18 months..."
+                            rows={4}
+                            className="resize-none"
+                          />
                         </div>
-                        <h3 className="font-serif text-xl font-semibold mb-2">Predictive Capability Forecast</h3>
-                        <p className="text-muted-foreground text-sm max-w-md mx-auto leading-relaxed font-sans">
-                          Enter a business scenario above to forecast future skill shortages and generate a hiring vs upskilling analysis with strategic recommendations.
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-4 font-sans">
-                          Or toggle &quot;Sample Data&quot; to preview with example forecast data.
-                        </p>
+                        <Button onClick={handleRunForecast} disabled={isLoadingForecast || !scenario.trim()}>
+                          {isLoadingForecast ? <><FiRefreshCw className="mr-2 animate-spin" /> Running Forecast...</> : <><FiPlay className="mr-2" /> Run Capability Forecast</>}
+                        </Button>
                       </CardContent>
                     </Card>
-                  )}
-                </TabsContent>
-              </Tabs>
+
+                    {isLoadingForecast && <SkeletonDashboard message="Running capability forecast and hiring vs upskilling simulations..." />}
+
+                    {!isLoadingForecast && displayPredictive && (
+                      <div className="space-y-6">
+                        {/* Scenario Summary */}
+                        <Card className="shadow-md bg-primary/5 border-primary/15">
+                          <CardContent className="p-5">
+                            <div className="flex items-start gap-3">
+                              <FiTarget className="text-primary text-lg mt-0.5 flex-shrink-0" />
+                              <div>
+                                <p className="font-serif font-semibold text-sm mb-1">Forecast Scenario</p>
+                                <p className="text-sm text-muted-foreground leading-relaxed">{displayPredictive.scenario ?? ''}</p>
+                                <Badge variant="outline" className="mt-2 text-xs">{displayPredictive.forecast_horizon_months ?? 0} Month Horizon</Badge>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Shortage Forecasts */}
+                        <Card className="shadow-md hover:shadow-lg transition-shadow">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiTrendingUp className="text-primary" /> Skill Shortage Forecasts</CardTitle>
+                            <CardDescription className="font-sans">Projected skill gaps over 6, 12, and 18 months</CardDescription>
+                          </CardHeader>
+                          <CardContent className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs">Skill</TableHead>
+                                  <TableHead className="text-xs text-center">Supply</TableHead>
+                                  <TableHead className="text-xs text-center">Demand</TableHead>
+                                  <TableHead className="text-xs text-center">6 Mo</TableHead>
+                                  <TableHead className="text-xs text-center">12 Mo</TableHead>
+                                  <TableHead className="text-xs text-center">18 Mo</TableHead>
+                                  <TableHead className="text-xs text-center">Severity</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {(Array.isArray(displayPredictive.skill_shortage_forecasts) ? displayPredictive.skill_shortage_forecasts : []).map((item, i) => (
+                                  <TableRow key={i}>
+                                    <TableCell className="text-sm font-medium">{item?.skill_name ?? ''}</TableCell>
+                                    <TableCell className="text-center font-mono text-sm">{item?.current_supply ?? 0}</TableCell>
+                                    <TableCell className="text-center font-mono text-sm">{item?.projected_demand ?? 0}</TableCell>
+                                    <TableCell className="text-center font-mono text-sm text-destructive">{item?.gap_at_6_months ?? 0}</TableCell>
+                                    <TableCell className="text-center font-mono text-sm text-destructive">{item?.gap_at_12_months ?? 0}</TableCell>
+                                    <TableCell className="text-center font-mono text-sm text-destructive">{item?.gap_at_18_months ?? 0}</TableCell>
+                                    <TableCell className="text-center">{classificationBadge(item?.severity ?? '')}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </CardContent>
+                        </Card>
+
+                        {/* Hiring vs Upskilling */}
+                        <Card className="shadow-md hover:shadow-lg transition-shadow">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiPercent className="text-primary" /> Hiring vs. Upskilling Analysis</CardTitle>
+                            <CardDescription className="font-sans">Cost and time comparison for talent strategies</CardDescription>
+                          </CardHeader>
+                          <CardContent className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs">Skill</TableHead>
+                                  <TableHead className="text-xs text-right">Hire Cost</TableHead>
+                                  <TableHead className="text-xs text-center">Hire Time</TableHead>
+                                  <TableHead className="text-xs text-right">Upskill Cost</TableHead>
+                                  <TableHead className="text-xs text-center">Upskill Time</TableHead>
+                                  <TableHead className="text-xs">Recommendation</TableHead>
+                                  <TableHead className="text-xs text-center">Confidence</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {(Array.isArray(displayPredictive.hiring_vs_upskilling) ? displayPredictive.hiring_vs_upskilling : []).map((item, i) => (
+                                  <TableRow key={i}>
+                                    <TableCell className="text-sm font-medium">{item?.skill_name ?? ''}</TableCell>
+                                    <TableCell className="text-right font-mono text-sm">{formatCurrency(item?.hire_cost ?? 0)}</TableCell>
+                                    <TableCell className="text-center font-mono text-sm">{item?.hire_time_months ?? 0}mo</TableCell>
+                                    <TableCell className="text-right font-mono text-sm text-green-700">{formatCurrency(item?.upskill_cost ?? 0)}</TableCell>
+                                    <TableCell className="text-center font-mono text-sm">{item?.upskill_time_months ?? 0}mo</TableCell>
+                                    <TableCell className="text-xs max-w-[160px]">{item?.recommendation ?? ''}</TableCell>
+                                    <TableCell className="text-center"><span className="font-mono text-sm">{Math.round((item?.confidence ?? 0) * 100)}%</span></TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </CardContent>
+                        </Card>
+
+                        {/* Readiness Projection Chart */}
+                        <Card className="shadow-md hover:shadow-lg transition-shadow">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiActivity className="text-primary" /> Readiness Projection</CardTitle>
+                            <CardDescription className="font-sans">Workforce readiness trajectory with confidence bands</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <ResponsiveContainer width="100%" height={320}>
+                              <AreaChart data={Array.isArray(displayPredictive.readiness_projections) ? displayPredictive.readiness_projections : []} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="hsl(35, 15%, 80%)" />
+                                <XAxis dataKey="month" tick={{ fontSize: 11 }} label={{ value: 'Month', position: 'insideBottomRight', offset: -5, fontSize: 11 }} />
+                                <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} label={{ value: 'Readiness %', angle: -90, position: 'insideLeft', fontSize: 11 }} />
+                                <Tooltip />
+                                <Area type="monotone" dataKey="confidence_upper" stroke="none" fill={CHART_COLORS.c2} fillOpacity={0.15} name="Upper Bound" />
+                                <Area type="monotone" dataKey="confidence_lower" stroke="none" fill="transparent" fillOpacity={0} name="Lower Bound" />
+                                <Line type="monotone" dataKey="readiness_percentage" stroke={CHART_COLORS.c1} strokeWidth={3} dot={{ fill: CHART_COLORS.c1, r: 4 }} name="Readiness %" />
+                                <Line type="monotone" dataKey="confidence_lower" stroke={CHART_COLORS.c4} strokeWidth={1} strokeDasharray="4 4" dot={false} name="Lower Confidence" />
+                                <Line type="monotone" dataKey="confidence_upper" stroke={CHART_COLORS.c4} strokeWidth={1} strokeDasharray="4 4" dot={false} name="Upper Confidence" />
+                                <Legend />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </CardContent>
+                        </Card>
+
+                        {/* Strategic Recommendations */}
+                        <Card className="shadow-md hover:shadow-lg transition-shadow">
+                          <CardHeader className="pb-2">
+                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiStar className="text-primary" /> Strategic Recommendations</CardTitle>
+                            <CardDescription className="font-sans">AI-generated strategic action items</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            {(Array.isArray(displayPredictive.strategic_recommendations) ? displayPredictive.strategic_recommendations : []).map((rec, i) => (
+                              <div key={i} className="p-4 rounded-lg border border-border bg-card">
+                                <div className="flex items-start justify-between mb-2">
+                                  <h4 className="font-serif font-semibold text-sm">{rec?.title ?? ''}</h4>
+                                  <div className="flex gap-1.5 flex-shrink-0">
+                                    {classificationBadge(rec?.priority ?? '')}
+                                    <Badge variant="outline" className="text-xs">{rec?.impact ?? ''} Impact</Badge>
+                                  </div>
+                                </div>
+                                <p className="text-sm text-muted-foreground leading-relaxed">{rec?.description ?? ''}</p>
+                                <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                                  <FiClock className="text-xs" />
+                                  <span>{rec?.timeline ?? ''}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+
+                    {!isLoadingForecast && !displayPredictive && (
+                      <Card className="shadow-md">
+                        <CardContent className="p-12 text-center">
+                          <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                            <FiTrendingUp className="text-primary text-2xl" />
+                          </div>
+                          <h3 className="font-serif text-xl font-semibold mb-2">Predictive Capability Forecast</h3>
+                          <p className="text-muted-foreground text-sm max-w-md mx-auto leading-relaxed font-sans">
+                            Enter a business scenario above to forecast future skill shortages and generate a hiring vs upskilling analysis. Or toggle &quot;Sample Data&quot; to preview.
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </main>
       </div>
-    </ErrorBoundary>
+    </PageErrorBoundary>
   )
 }
