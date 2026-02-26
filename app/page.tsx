@@ -1335,26 +1335,296 @@ Based on this self-evaluation, generate accurate skill radar data (current_score
                 )}
 
                 {/* SECTION: ROI Metrics */}
-                {activeEmployeeSection === 'roi' && hasEmployeeData && displayOrchestrator && (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {[
-                        { label: 'Effectiveness Score', value: `${displayOrchestrator.roi_metrics?.effectiveness_score ?? 0}%`, icon: FiCheckCircle },
-                        { label: 'Acquisition Velocity', value: `${displayOrchestrator.roi_metrics?.acquisition_velocity ?? 0}x`, icon: FiZap },
-                        { label: 'Program ROI', value: `${displayOrchestrator.roi_metrics?.program_roi ?? 0}%`, icon: FiDollarSign },
-                        { label: 'Retention Lift', value: `+${displayOrchestrator.roi_metrics?.retention_lift ?? 0}%`, icon: FiTrendingUp },
-                      ].map((m, i) => (
-                        <Card key={i} className="shadow-md hover:shadow-lg transition-shadow">
-                          <CardContent className="p-4 flex flex-col items-center text-center">
-                            <m.icon className="text-primary text-xl mb-2" />
-                            <p className="font-mono text-2xl font-bold">{m.value}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{m.label}</p>
+                {activeEmployeeSection === 'roi' && hasEmployeeData && displayOrchestrator && (() => {
+                  const roi = displayOrchestrator.roi_metrics
+                  const effectivenessScore = roi?.effectiveness_score ?? 0
+                  const acquisitionVelocity = roi?.acquisition_velocity ?? 0
+                  const programRoi = roi?.program_roi ?? 0
+                  const retentionLift = roi?.retention_lift ?? 0
+                  const readinessScore = displayOrchestrator.overall_readiness_score ?? 0
+                  const gaps = Array.isArray(displayOrchestrator.gap_heatmap) ? displayOrchestrator.gap_heatmap : []
+                  const criticalGaps = gaps.filter(g => (g?.classification ?? '').toLowerCase() === 'critical').length
+                  const totalGaps = gaps.length
+                  const learningActivities = Array.isArray(displayOrchestrator.learning_path?.activities) ? displayOrchestrator.learning_path.activities : []
+                  const totalHours = learningActivities.reduce((sum, a) => sum + (a?.hours ?? 0), 0)
+                  const totalWeeks = displayOrchestrator.learning_path?.total_weeks ?? 0
+                  const mobilityMatches = Array.isArray(displayOrchestrator.mobility_matches) ? displayOrchestrator.mobility_matches : []
+                  const topMobility = mobilityMatches.length > 0 ? mobilityMatches.reduce((best, m) => (m?.readiness ?? 0) > (best?.readiness ?? 0) ? m : best, mobilityMatches[0]) : null
+
+                  // Derived insights
+                  const costPerHour = 75 // estimated avg training cost per hour
+                  const estimatedInvestment = totalHours * costPerHour
+                  const projectedReturn = Math.round(estimatedInvestment * (programRoi / 100))
+                  const netBenefit = projectedReturn - estimatedInvestment
+                  const readinessAfter = Math.min(100, readinessScore + Math.round((100 - readinessScore) * (effectivenessScore / 100)))
+
+                  // Gauge SVG helper
+                  const MiniGauge = ({ value, size = 80, color }: { value: number; size?: number; color: string }) => {
+                    const r = (size - 12) / 2
+                    const c = 2 * Math.PI * r
+                    const p = (value / 100) * c
+                    return (
+                      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+                        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="hsl(35, 15%, 85%)" strokeWidth="8" />
+                        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="8" strokeDasharray={c} strokeDashoffset={c - p} strokeLinecap="round" transform={`rotate(-90 ${size/2} ${size/2})`} />
+                        <text x={size/2} y={size/2 + 1} textAnchor="middle" dominantBaseline="middle" className="fill-foreground font-mono text-sm font-bold">{value}%</text>
+                      </svg>
+                    )
+                  }
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Hero KPI Cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Card className="shadow-md hover:shadow-lg transition-shadow border-l-4 border-l-green-600">
+                          <CardContent className="p-5">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="text-xs text-muted-foreground font-sans uppercase tracking-wide">Effectiveness</p>
+                                <p className="font-mono text-3xl font-bold mt-1">{effectivenessScore}%</p>
+                                <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed font-sans">How well the recommended learning path converts to actual skill improvement</p>
+                              </div>
+                              <MiniGauge value={effectivenessScore} size={56} color="hsl(140, 50%, 35%)" />
+                            </div>
                           </CardContent>
                         </Card>
-                      ))}
+                        <Card className="shadow-md hover:shadow-lg transition-shadow border-l-4 border-l-primary">
+                          <CardContent className="p-5">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="text-xs text-muted-foreground font-sans uppercase tracking-wide">Skill Velocity</p>
+                                <p className="font-mono text-3xl font-bold mt-1">{acquisitionVelocity}x</p>
+                                <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed font-sans">Rate of skill acquisition compared to industry average (1x baseline)</p>
+                              </div>
+                              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <FiZap className="text-primary text-xl" />
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="shadow-md hover:shadow-lg transition-shadow border-l-4 border-l-accent">
+                          <CardContent className="p-5">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="text-xs text-muted-foreground font-sans uppercase tracking-wide">Program ROI</p>
+                                <p className="font-mono text-3xl font-bold mt-1">{programRoi}%</p>
+                                <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed font-sans">Expected return on learning investment based on historical program data</p>
+                              </div>
+                              <div className="w-14 h-14 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+                                <FiDollarSign className="text-accent text-xl" />
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="shadow-md hover:shadow-lg transition-shadow border-l-4 border-l-blue-600">
+                          <CardContent className="p-5">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="text-xs text-muted-foreground font-sans uppercase tracking-wide">Retention Lift</p>
+                                <p className="font-mono text-3xl font-bold mt-1">+{retentionLift}%</p>
+                                <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed font-sans">Increased likelihood of retention when employees are actively upskilled</p>
+                              </div>
+                              <div className="w-14 h-14 rounded-full bg-blue-600/10 flex items-center justify-center flex-shrink-0">
+                                <FiTrendingUp className="text-blue-600 text-xl" />
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Investment Impact Analysis */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card className="shadow-md hover:shadow-lg transition-shadow">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiDollarSign className="text-primary" /> Investment Impact</CardTitle>
+                            <CardDescription className="font-sans">Projected financial impact of completing the learning path</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="p-4 rounded-lg bg-secondary/30 border border-secondary">
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm font-sans">Estimated Training Investment</span>
+                                <span className="font-mono text-lg font-bold">{formatCurrency(estimatedInvestment)}</span>
+                              </div>
+                              <div className="text-[11px] text-muted-foreground font-sans">
+                                {totalHours} hours of training across {learningActivities.length} activities over {totalWeeks} weeks
+                              </div>
+                            </div>
+                            <div className="p-4 rounded-lg bg-green-600/5 border border-green-600/15">
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm font-sans">Projected Return</span>
+                                <span className="font-mono text-lg font-bold text-green-700">{formatCurrency(projectedReturn)}</span>
+                              </div>
+                              <div className="text-[11px] text-muted-foreground font-sans">
+                                Based on {programRoi}% historical program ROI
+                              </div>
+                            </div>
+                            <Separator />
+                            <div className="flex items-center justify-between px-1">
+                              <span className="text-sm font-medium font-sans">Net Benefit</span>
+                              <span className={`font-mono text-xl font-bold ${netBenefit >= 0 ? 'text-green-700' : 'text-destructive'}`}>
+                                {netBenefit >= 0 ? '+' : ''}{formatCurrency(netBenefit)}
+                              </span>
+                            </div>
+
+                            {/* ROI visual bar */}
+                            <div className="mt-2">
+                              <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                                <span>Investment</span>
+                                <span>Return</span>
+                              </div>
+                              <div className="relative h-6 bg-secondary/50 rounded-md overflow-hidden">
+                                <div
+                                  className="absolute inset-y-0 left-0 rounded-md"
+                                  style={{ width: `${Math.min(100, (estimatedInvestment / Math.max(projectedReturn, estimatedInvestment)) * 100)}%`, backgroundColor: CHART_COLORS.c4 }}
+                                />
+                                <div
+                                  className="absolute inset-y-0 left-0 rounded-md opacity-40"
+                                  style={{ width: '100%', backgroundColor: 'hsl(140, 50%, 35%)' }}
+                                />
+                                <div
+                                  className="absolute inset-y-0 left-0 rounded-md"
+                                  style={{ width: `${Math.min(100, (estimatedInvestment / Math.max(projectedReturn, estimatedInvestment)) * 100)}%`, backgroundColor: CHART_COLORS.c4 }}
+                                />
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Readiness Projection */}
+                        <Card className="shadow-md hover:shadow-lg transition-shadow">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiTarget className="text-primary" /> Readiness Projection</CardTitle>
+                            <CardDescription className="font-sans">Estimated readiness before and after completing the learning path</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex items-center justify-around py-4">
+                              <div className="text-center">
+                                <p className="text-xs text-muted-foreground font-sans mb-2">Current</p>
+                                <ReadinessGauge score={readinessScore} />
+                              </div>
+                              <div className="flex flex-col items-center gap-1">
+                                <FiArrowRight className="text-primary text-xl" />
+                                <span className="text-[10px] text-muted-foreground font-sans">{totalWeeks} weeks</span>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-xs text-muted-foreground font-sans mb-2">Projected</p>
+                                <ReadinessGauge score={readinessAfter} />
+                              </div>
+                            </div>
+                            <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/15">
+                              <p className="text-xs text-muted-foreground font-sans leading-relaxed">
+                                With a <span className="font-mono font-medium text-foreground">{effectivenessScore}%</span> effectiveness rate and <span className="font-mono font-medium text-foreground">{acquisitionVelocity}x</span> skill velocity, completing the learning path is projected to increase readiness by <span className="font-mono font-bold text-primary">+{readinessAfter - readinessScore} points</span>.
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      {/* Detailed Insights */}
+                      <Card className="shadow-md hover:shadow-lg transition-shadow">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="font-serif text-lg tracking-wide flex items-center gap-2"><FiActivity className="text-primary" /> Assessment Insights</CardTitle>
+                          <CardDescription className="font-sans">Key findings from your skill gap analysis</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Gaps Insight */}
+                            <div className="p-4 rounded-lg border border-border bg-card">
+                              <div className="flex items-center gap-2 mb-3">
+                                <FiGrid className="text-primary" />
+                                <p className="text-sm font-medium">Skill Gaps</p>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-muted-foreground">Total gaps identified</span>
+                                  <span className="font-mono text-sm font-bold">{totalGaps}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-destructive">Critical gaps</span>
+                                  <span className="font-mono text-sm font-bold text-destructive">{criticalGaps}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-muted-foreground">Avg gap size</span>
+                                  <span className="font-mono text-sm font-bold">{totalGaps > 0 ? Math.round(gaps.reduce((sum, g) => sum + (g?.delta ?? 0), 0) / totalGaps) : 0} pts</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Learning Insight */}
+                            <div className="p-4 rounded-lg border border-border bg-card">
+                              <div className="flex items-center gap-2 mb-3">
+                                <FiBookOpen className="text-primary" />
+                                <p className="text-sm font-medium">Learning Path</p>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-muted-foreground">Activities planned</span>
+                                  <span className="font-mono text-sm font-bold">{learningActivities.length}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-muted-foreground">Total training hours</span>
+                                  <span className="font-mono text-sm font-bold">{totalHours}h</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-muted-foreground">Duration</span>
+                                  <span className="font-mono text-sm font-bold">{totalWeeks} weeks</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Mobility Insight */}
+                            <div className="p-4 rounded-lg border border-border bg-card">
+                              <div className="flex items-center gap-2 mb-3">
+                                <FiMapPin className="text-primary" />
+                                <p className="text-sm font-medium">Career Mobility</p>
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-muted-foreground">Matching roles</span>
+                                  <span className="font-mono text-sm font-bold">{mobilityMatches.length}</span>
+                                </div>
+                                {topMobility && (
+                                  <>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs text-muted-foreground">Best match</span>
+                                      <span className="text-xs font-medium truncate max-w-[120px]">{topMobility.role_title}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs text-muted-foreground">Top readiness</span>
+                                      <span className="font-mono text-sm font-bold text-primary">{topMobility.readiness}%</span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Bottom recommendation */}
+                      <Card className="shadow-md bg-primary/5 border-primary/15">
+                        <CardContent className="p-5">
+                          <div className="flex items-start gap-4">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <FiCompass className="text-primary text-lg" />
+                            </div>
+                            <div>
+                              <p className="font-serif font-semibold text-sm mb-1">Recommendation</p>
+                              <p className="text-sm text-muted-foreground leading-relaxed font-sans">
+                                {readinessScore >= 75
+                                  ? `With a readiness score of ${readinessScore}%, you are well-positioned for the transition. Focus on the ${criticalGaps} critical gap${criticalGaps !== 1 ? 's' : ''} to maximize your readiness. The projected ROI of ${programRoi}% makes this a strong investment.`
+                                  : readinessScore >= 50
+                                    ? `Your readiness score of ${readinessScore}% shows solid foundations with room for growth. Prioritize the ${criticalGaps} critical skill gap${criticalGaps !== 1 ? 's' : ''} and the ${totalHours}-hour learning path to close the gap. With ${acquisitionVelocity}x skill velocity, you can reach your target efficiently.`
+                                    : `At ${readinessScore}% readiness, you have significant gaps to address. The ${totalHours}-hour learning path across ${totalWeeks} weeks targets all ${totalGaps} identified gaps. Start with critical skills first. The ${retentionLift}% retention lift shows the organization values this investment in your growth.`
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
                     </div>
-                  </div>
-                )}
+                  )
+                })()}
               </>
             )}
 
